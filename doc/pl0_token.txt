@@ -1,0 +1,49 @@
+PL/0 's token
+==========================
+
+1. keyword
+-------------
+begin	-> "begin"
+call	-> "call"
+const	-> "const"
+do	-> "do"
+end	-> "end"
+if	-> "if"
+odd	-> "odd"
+proc	-> "procedure"
+then	-> "then"
+var	-> "var"
+while	-> "while"
+
+2. punctuator
+-------------
+becomes	-> ":="
+neq	-> "<>"
+leq	-> "<="
+lss	-> "<"
+geq	-> ">="
+gtr	-> ">"
+plus	-> "+"
+minus	-> "-"
+times	-> "*"
+slash	-> "/"
+eql	-> "="
+lparen	-> "("
+rparen	-> ")"
+comma	-> ","
+period	-> "."
+semicolon->";"
+
+3. identifier
+-------------
+id	-> [a-zA-Z][a-zA-Z0-9]*
+
+4. number
+-------------
+num10	-> [1-9][0-9]*|0
+num16	-> 0[xX][0-9a-f]+
+num8	-> 0[0-7]+
+
+5. comment
+-------------
+comment -> \/\*[^\*]*\*(([^\*\/][^\*]*)?\*)*\/

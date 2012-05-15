@@ -1,0 +1,17 @@
+/* 这个例子演示了语法正确，语义错误的所有情况 */
+var c;
+procedure a;
+begin
+	call b;     /* 11 */
+end;
+
+procedure b;
+begin
+end;
+
+begin
+	a:=3;      /* 12 */
+	call c;    /* 15 */
+	c:= b + 1; /* 21 */
+end.
+

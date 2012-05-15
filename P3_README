@@ -1,0 +1,20 @@
+第3次作业：
+
+PL/0错误分析见          doc/pl0error.pdf
+C0编译器的语法和设计见  doc/c0.pdf
+
+代码结构：按照复用解释器的要求，原pl0.c已经被拆分为多个文件
+          src/interpret.c 为解释器
+          include/glo.h 和 src/glo.c 为全局变量
+          src/c0 和 src/pl0 下分别有 lexer.c parser.c 分别包含词法和语法分析两部分
+          src/c0/c0.c 和 src/pl0/pl0.c 分别为主函数
+
+注意：为了方便测试，编译器已经改为由标准输入流读程序。若从文件请用重定向！
+
+PL/0编译器和C0编译器的错误检测用例放在 test/pl0/error 和 test/c0/error 下，每个文件同时检测多个错误。
+PL/0编译器和C0编译器的语法特征说明用例放在 test/pl0/ex 和 test/c0/ex 下。
+
+
+PB09210183 何春晖
+2012.03.25
+

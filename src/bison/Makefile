@@ -1,0 +1,23 @@
+CC       = gcc -g -c -Iinclude -I../../include
+LD	 = gcc
+LEX      = flex -i -I 
+YACC     = bison -d -y -r all --debug
+
+OBJ	 = src/c0.tab.o src/c0.lex.o src/sym_tab.o src/gen_c.o src/gen_pl0sim.o src/gen_spim.o  ../file.o src/bc0c.o
+
+src/%.o : src/%.c
+	$(CC) -o $@ $<
+src/%.lex.c : rule/%.lex
+	$(LEX) -o $@ $<
+src/%.tab.c : rule/%.y
+	$(YACC) -b c0 -o $@ $<
+
+../../bin/bc0c: $(OBJ)
+	$(LD) -o $@ $(OBJ)
+all: clean ../../bin/bc0c
+clean:
+	rm -f src/*.lex.c src/*.tab.c src/*.tab.h *~
+	rm -f src/*.o
+	rm -f $(OBJ)
+	rm -f ../../bin/bc0c
+	rm -f src/*.output

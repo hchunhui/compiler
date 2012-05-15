@@ -1,0 +1,66 @@
+符号表设计：
+
+根据函数、变量、常量三种类型，设计如下：
+
+
+struct sym_func {
+	struct ast_node *stmts; //函数语句AST结点
+	struct sym_tab *sym;    //函数局部符号表
+	unsigned int addr;      //函数地址
+};
+struct sym_var {
+	unsigned int offset;    //变量地址
+};
+struct sym_const {
+	int value;              //常量值
+};
+
+enum {
+	SYM_FUNC,
+	SYM_VAR,
+	SYM_CONST,
+};
+
+struct sym_entry {
+	struct list_head list;   //hash开链
+	struct list_head order;  //按照声明的顺序串成的链
+	struct sym_tab *tab;     //指回本层符号表
+	char *name;              //符号名
+	int type;
+	union {
+		struct sym_func sfunc;
+		struct sym_var  svar;
+		struct sym_const sconst;
+	};
+};
+
+#define HASHSIZE 256
+struct sym_tab {
+	struct list_head entry[HASHSIZE]; //hash表
+	struct list_head order;           //顺序链头
+	struct sym_tab *uplink;           //指向上层符号表
+};
+
+链接图示如下：
+
+        +->指向上一级sym_tab
+ +------|---->+---------+<-----------+
+ |	|     | sym_tab |            |
+ |	|     +---------+            |
+ |	+-----| uplink  |            |
+ |	      +---------+            |
+ |	  <-->|  order  |<-->        |
+ |            +---------+            |
+ | +--------->|entry[i] |<-----------|----+
+ | |          +---------+            |    |
+ | |  +---------+     +---------+    |    |
+ | |  |sym_entry|     |sym_entry|    |    |
+ | |  +---------+     +---------+    |    |
+ | +->|  list   |<--->|  list   |<->.|..<-+
+ |    +---------+     +---------+    |
+ +--->|   tab   |     |   tab   |----+
+      +---------+     +---------+
+
+基本操作：
+enter  登记符号
+lookup 查找符号（在本层查，找不到就uplink再查，直到顶层）

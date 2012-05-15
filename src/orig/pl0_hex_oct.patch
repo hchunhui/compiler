@@ -1,0 +1,51 @@
+--- src/pl0.c.orig	2012-02-15 21:37:17.983316097 +0800
++++ src/pl0.c	2012-02-15 21:52:46.766689786 +0800
+@@ -72,12 +72,42 @@
+ 	}
+     }else if(isdigit(ch)){ // number
+ 	k=0; num=0; sym=number;
+-	do{
+-	    num=num*10+(ch-'0');
+-	    k=k+1; getch();
+-	}while(isdigit(ch));
+-	if(k>nmax){
+-	    error(31);
++	if(ch == '0') {
++		getch();
++		if(ch == 'x' || ch == 'X') {
++			getch();
++			for(;;)
++			{
++				if(isdigit(ch))
++					ch -= '0';
++				else if('a' <= ch && 'f' >= ch)
++					ch -= 'a' - 10;
++				else if('A' <= ch && 'F' >= ch)
++					ch -= 'A' - 10;
++				else
++					break;
++				num = num*16 + ch;
++				getch();
++			}
++		} else {
++			for(;;)
++			{
++				if('0' <= ch && '7' >= ch)
++					ch -= '0';
++				else
++					break;
++				num = num*8 + ch;
++				getch();
++			}
++		}
++	} else {
++		do{
++			num=num*10+(ch-'0');
++			k=k+1; getch();
++		}while(isdigit(ch));
++		if(k>nmax){
++			error(31);
++		}
+ 	}
+     }else if(ch==':'){
+ 	getch();

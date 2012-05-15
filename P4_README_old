@@ -1,0 +1,17 @@
+第4次作业：
+
+用Bison+Flex构造的分析器在bison目录下
+文档：doc/bison.txt
+
+bison/rule/c0.y bison/rule/c0.lex 分别为语法和词法文件
+
+建造：
+	cd bison
+	make all
+
+运行：
+	./c0 < filename
+
+PB09210183 何春晖
+2012.03.25
+

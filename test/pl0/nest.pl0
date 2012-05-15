@@ -1,0 +1,22 @@
+var t;
+procedure a;
+begin
+	t := 1;
+end;
+
+procedure b;
+	procedure c;
+	begin
+		t:=3;
+		call b;
+	end;
+begin
+	if t <> 3 then call c;
+	t:=2;
+end;
+
+begin
+	call a;
+	call b;
+/*	call c;*/
+end.

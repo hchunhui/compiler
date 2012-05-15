@@ -1,0 +1,62 @@
+第4次作业第二次提交：
+* 完成情况 *
+全部完成
+
+* 文档 *
+doc/bison.txt
+doc/astnode.txt  AST设计
+doc/symtab.txt   符号表设计
+doc/c0.pdf 2.1节 中间代码生成，参照c0.y
+
+* 重要文件说明 *
+src/
+|--bison/
+|  |--rule/
+|  |  |--c0.y		语法文件
+|  |  |--c0.lex		词法文件
+|  |--src/
+|  |  |--bc0c.c		P4中所要求的编译器的主程序
+|  |  |--sym_tab.c	符号表实现
+|  |  |--gen_c.c	从AST生成C代码的生成器
+|  |  |--gen_pl0sim.c	从AST生成PL/0中间代码的生成器
+|  |--include/
+|  |  |--ast_node.h	AST实现
+|  |  |--list.h		链表实现（从Linux内核中抽取）
+|  |  |--node_type.h	AST结点类型定义
+|--c0/			P3中所要求的C0编译器（解释器分离后的版本）
+|--pl0/			P3中所要求的PL/0编译器
+|--file.c		（共用）二进制文件读写
+|--interpreter.c	（共用）PL/0虚拟机实现
+
+
+* 建造 *
+	make clean
+	make
+生成：
+c0c	P3编译器
+bc0c	P4编译器
+c0i	PL/0解释器
+
+* 运行 *
+从命令行读取参数，使用方法类似GCC：
+
+编译生成PL/0中间代码：
+	./bc0c src_file [-o out_file]
+
+编译生成C代码：
+	./bc0c src_file [-o out_file] -m c
+
+执行PL/0中间代码：
+	./c0i outfile
+或
+	./outfile （若c0i与outfile在同一目录，且有可执行权限）
+
+帮助：
+	./bc0c -h
+
+* 测试 *
+	./all_test
+
+PB09210183 何春晖
+2012.05.05
+

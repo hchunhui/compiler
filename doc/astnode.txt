@@ -1,0 +1,54 @@
+AST结点设计：
+由于语义的要求，树结点的分叉数是不一样的的，故采用链表将儿子和兄弟组成一个双向链表（从Linux内核取出，而非bison-example），增强通用性。
+
+定义如下：
+
+struct ast_node {
+	unsigned short type;
+	unsigned short id;
+	struct list_head sibling;
+	int first_line;
+	int first_column;
+	union {
+		void *pval;
+		int ival;
+		struct list_head chlds;
+	};
+};
+
+
+各个域含义为：
+	type	结点类型（exp、block等，详见node_type.h）
+		T_LEAF置位时，表示这是叶子结点，chlds不用。
+	id	结点子类型（'+'、'-'等）
+	sibling	兄弟组成的链表
+	first_*	位置追踪信息
+	chlds	儿子组成的链表
+	*val	结点属性值
+
+图示如下：
+
+   +--------------------------------------+
+   |  +---------+     +---------+         |
+   |  |  types  |     |  types  |         |
+   |  +---------+     +---------+         |
+   +->| sibling |<--->| sibling |<->....<-+
+      +---------+     +---------+
+   +->|  chlds  |<-+  |   val   |
+   |  +---------+  |  +---------+
+   |               |
+   |  +---------+  |
+   |  |  types  |  +----+
+   |  +---------+       |
+   +->| sibling |<->..<-+
+      +---------+
+  ..->|  chlds  |<--..
+      +---------+
+
+基本操作只有三种：
+ast_node_new		新建
+ast_node_delete		删除
+ast_node_add_chld	增加儿子
+
+其余遍历兄弟和儿子的操作使用list.h中的list_for_each_entry实现。
+

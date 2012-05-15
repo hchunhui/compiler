@@ -1,0 +1,17 @@
+/* 这个例子演示了超出限制错的情况 */
+const a=3000000000;     /* 31 */
+procedure a;
+	procedure b;
+			procedure c;
+				procedure e; /* 32 */
+				begin
+				end;
+			begin
+			end;
+	begin
+	end;
+begin
+end;
+
+begin
+end.
