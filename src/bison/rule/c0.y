@@ -40,6 +40,17 @@ void setloc(struct ast_node *node, int line, int col)
 	node->first_column = col;
 }
 
+#define exp_action2(ret, loc, op, arg1, arg2)   \
+	do { \
+	ret = mknode(NT_EXP, op, arg1, arg2, NULL); \
+	setloc(ret, loc.first_line, loc.first_column); \
+	}while(0)
+
+#define exp_action1(ret, loc, op, arg)	   \
+	do { \
+	ret = mknode(NT_EXP, op, arg, NULL); \
+	setloc(ret, loc.first_line, loc.first_column); \
+	}while(0)
 %}
 
 %union {
@@ -50,33 +61,52 @@ void setloc(struct ast_node *node, int line, int col)
 }
 
 %locations
-%token IDENTIFIER NUMBER
-%token LE_OP GE_OP EQ_OP NE_OP
 
-%token INT VOID
-%token IF WHILE
+%token IDENTIFIER NUMBER
+
+/* keywords */
+%token TYPEDEF INT VOID FLOAT BOOL TRUE FALSE IF ELSE WHILE BREAK RETURN
+%token READ WRITE
+%token CONST
+
+%token LE_OP GE_OP EQ_OP NE_OP NOT AND OR
 
 %start program
 
-%left '-' '+'
-%left '*' '/'
-%nonassoc UMINUS
+%right '='
+%left OR
+%left AND
+%left '|'
+%left '&'
+%left NE_OP EQ_OP
+%left '>' GE_OP '<' LE_OP
+%left '+' '-'
+%left '*' '/' '%'
+%right UNARY
 
 %type <ival> NUMBER
 %type <name> IDENTIFIER funcdecl1
-%type <ival> '+' '-' '*' '/'
-%type <ival> '%' '<' '>' LE_OP GE_OP NE_OP EQ_OP relop
-%type <ival> '='
-%type <ival> INT VOID IF WHILE
-%type <node> stmts stmt exp cond
+%type <ival> INT VOID FLOAT BOOL
+%type <ival> IF WHILE
+%type <node> stmts stmt exp
+
+%type <ival>  '='
+%type <ival>  OR
+%type <ival>  AND
+%type <ival>  '|'
+%type <ival>  '&'
+%type <ival>  NE_OP EQ_OP
+%type <ival>  '<' '>' LE_OP GE_OP
+%type <ival>  '+' '-'
+%type <ival>  '*' '/' '%'
+%type <ival>  NOT '~'
+
 %destructor { free($$); } IDENTIFIER
 %error-verbose
 /*%define parse.lac full*/
 %%
 
-program
-	: decl
-	;
+program : decl;
 decl
 	: decl vardecl
 	| decl funcdecl
@@ -123,14 +153,6 @@ vardef
 		free($1);
 	}
 	;
-relop
-	: '>'
-	| '<'
-	| LE_OP
-	| GE_OP
-	| EQ_OP
-	| NE_OP
-	;
 exp
 	: NUMBER
 	{
@@ -148,53 +170,33 @@ exp
 		free($1);
 		setloc($$, @$.first_line, @$.first_column);
 	}
-	| exp '+' exp
-	{
-		$$ = mknode(NT_EXP, $2, $1, $3, NULL);
-		setloc($$, @$.first_line, @$.first_column);
-	}
-	| exp '-' exp
-	{
-		$$ = mknode(NT_EXP, $2, $1, $3, NULL);
-		setloc($$, @$.first_line, @$.first_column);
-	}
-	| exp '*' exp
-	{
-		$$ = mknode(NT_EXP, $2, $1, $3, NULL);
-		setloc($$, @$.first_line, @$.first_column);
-	}
-	| exp '/' exp
-	{
-		$$ = mknode(NT_EXP, $2, $1, $3, NULL);
-		setloc($$, @$.first_line, @$.first_column);
-	}
-	| '-' exp %prec UMINUS
-	{
-		$$ = mknode(NT_EXP, UMINUS, $2, NULL);
-		setloc($$, @$.first_line, @$.first_column);
-	}
+	| exp '=' exp { exp_action2($$, @$, $2, $1, $3); }
+	| exp OR exp { exp_action2($$, @$, $2, $1, $3); }
+	| exp AND exp { exp_action2($$, @$, $2, $1, $3); }
+	| exp '|' exp { exp_action2($$, @$, $2, $1, $3); }
+	| exp '&' exp { exp_action2($$, @$, $2, $1, $3); }
+	| exp NE_OP exp { exp_action2($$, @$, $2, $1, $3); }
+	| exp EQ_OP exp { exp_action2($$, @$, $2, $1, $3); }
+	| exp '>' exp { exp_action2($$, @$, $2, $1, $3); }
+	| exp '<' exp { exp_action2($$, @$, $2, $1, $3); }
+	| exp GE_OP exp { exp_action2($$, @$, $2, $1, $3); }
+	| exp LE_OP exp { exp_action2($$, @$, $2, $1, $3); }
+	| exp '+' exp { exp_action2($$, @$, $2, $1, $3); }
+	| exp '-' exp { exp_action2($$, @$, $2, $1, $3); }
+	| exp '*' exp { exp_action2($$, @$, $2, $1, $3); }
+	| exp '/' exp { exp_action2($$, @$, $2, $1, $3); }
+	| exp '%' exp { exp_action2($$, @$, $2, $1, $3); }
+	| '+' exp %prec UNARY { exp_action1($$, @$, $1, $2); }
+	| '-' exp %prec UNARY { exp_action1($$, @$, $1, $2); }
+	| NOT exp %prec UNARY { exp_action1($$, @$, $1, $2); }
+	| '~' exp %prec UNARY { exp_action1($$, @$, $1, $2); }
 	| '(' exp ')'
 	{
 		$$ = $2;
 		setloc($$, @$.first_line, @$.first_column);
 	}
 	;
-cond
-	: exp relop exp
-	{
-		$$ = mknode(NT_COND, $2, $1, $3, NULL);
-		setloc($$, @$.first_line, @$.first_column);
-	}
-	| exp '%' NUMBER
-	{
-		if($3 != 2) printf("error: %\n");
-		$$ = mknode(NT_COND,
-			    $2,
-			    $1,
-			    NULL);
-		setloc($$, @$.first_line, @$.first_column);
-	}
-	;
+
 stmt
 	: IDENTIFIER '=' exp ';'
 	{
@@ -222,12 +224,12 @@ stmt
 		$$ = $2;
 		setloc($$, @$.first_line, @$.first_column);
 	}
-	| IF '(' cond ')' stmt
+	| IF '(' exp ')' stmt
 	{
 		$$ = mknode(NT_IF, 0, $3, $5, NULL);
 		setloc($$, @$.first_line, @$.first_column);
 	}
-	| WHILE '(' cond ')' stmt
+	| WHILE '(' exp ')' stmt
 	{
 		$$ = mknode(NT_WHILE, 0, $3, $5, NULL);
 		setloc($$, @$.first_line, @$.first_column);
