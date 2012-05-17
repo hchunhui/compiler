@@ -38,8 +38,9 @@ static void get_lr_child(struct ast_node *node,
 	}
 	if(i != 2)
 	{
-		fprintf(fp,"error get_lr_child\n");
-		exit(1);
+		*r = NULL;
+		/*fprintf(fp,"error get_lr_child\n");
+		  exit(1);*/
 	}
 }
 
@@ -82,57 +83,39 @@ static void gen_call(struct ast_node *node)
 static void gen_exp(struct ast_node *node)
 {
 	struct ast_node *p, *l, *r;
-	int func;
-	switch(node->id)
-	{
-	case UMINUS:
-		fprintf(fp,"-(");
-		gen_exp(get_child(node));
-		fprintf(fp,") ");
-		break;
-	case '+':
-	case '-':
-	case '*':
-	case '/':
-		get_lr_child(node, &l, &r);
-		fprintf(fp,"(");
-		gen_exp(l);
-		fprintf(fp,")%c(", node->id);
-		gen_exp(r);
-		fprintf(fp,") ");
-		break;
-	case 'N':
-	case 'I': gen_leaf(get_child(node));return;
-	default: fprintf(fp,"gen_exp error\n");exit(1);
-	}
-}
-
-static void gen_cond(struct ast_node *node)
-{
-	struct ast_node *p, *l, *r;
 	char *func;
 	switch(node->id)
 	{
-	case '%':
-		fprintf(fp,"(");
-		gen_exp(get_child(node));
-		fprintf(fp,")%%2 ");
-		return;
+	case '+':func = "+";break;
+	case '-':func = "-";break;
+	case '*':func = "*";break;
+	case '/':func = "/";break;
 	case EQ_OP: func = "==";break;
 	case NE_OP: func = "!=";break;
 	case '<': func = "<";break;
 	case GE_OP: func = ">=";break;
 	case '>': func = ">";break;
 	case LE_OP: func = "<=";break;
-	default: return;
+	case '%': func = "%";break;
+	case 'N':
+	case 'I': gen_leaf(get_child(node));return;
+	default: fprintf(fp,"gen_exp error\n");exit(1);
 	}
-
 	get_lr_child(node, &l, &r);
-	fprintf(fp,"(");
-	gen_exp(l);
-	fprintf(fp,")%s(", func);
-	gen_exp(r);
-	fprintf(fp,") ");
+	if(r)
+	{
+		fprintf(fp,"(");
+		gen_exp(l);
+		fprintf(fp,")%s(", func);
+		gen_exp(r);
+		fprintf(fp,") ");
+	}
+	else
+	{
+		fprintf(fp,"%s(", func);
+		gen_exp(l);
+		fprintf(fp,") ");
+	}
 }
 
 static void gen_assign(struct ast_node *node)
@@ -154,7 +137,7 @@ static void gen_if(struct ast_node *node)
 	struct sym_entry *e;
 	get_lr_child(node, &cond, &stmt);
 	fprintf(fp,"if(");
-	gen_cond(cond);
+	gen_exp(cond);
 	fprintf(fp,") ");
 	gen_stmt(stmt);
 }
@@ -166,7 +149,7 @@ static void gen_while(struct ast_node *node)
 	struct sym_entry *e;
 	get_lr_child(node, &cond, &stmt);
 	fprintf(fp,"while(");
-	gen_cond(cond);
+	gen_exp(cond);
 	fprintf(fp,") ");
 	gen_stmt(stmt);
 }

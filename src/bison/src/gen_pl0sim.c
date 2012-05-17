@@ -120,7 +120,7 @@ static void gen_exp(struct ast_node *node)
 	int func;
 	switch(node->id)
 	{
-	case UMINUS: func = 1;break;
+		//case UMINUS: func = 1;break;
 	case '+': func = 2;break;
 	case '-': func = 3;break;
 	case '*': func = 4;break;

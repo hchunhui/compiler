@@ -20,10 +20,25 @@ H	   [a-fA-F0-9]
 %%
 \/\*[^\*]*\*(([^\*\/][^\*]*)?\*)*\/ {  }
 
+"typedef"		{  return(TYPEDEF); }
 "int"			{  return(INT); }
 "void"			{  return(VOID); }
+"float"			{  return(FLOAT); }
+"bool"			{  return(BOOL); }
+
+"true"			{  return(TRUE); }
+"false"			{  return(FALSE); }
+
 "if"			{  return(IF); }
+"else"			{  return(ELSE); }
 "while"			{  return(WHILE); }
+"break"			{  return(BREAK); }
+"return"		{  return(RETURN); }
+
+"read"			{  return(READ); }
+"write"			{  return(WRITE); }
+
+"const"			{  return(CONST); }
 
 {L}({L}|{D})*		{
 	
@@ -48,24 +63,38 @@ H	   [a-fA-F0-9]
    }
 
 
+"&"			{  ret('&'); }
+"|"			{  ret('|'); }
+"~"			{  ret('~'); }
+
+
+"!"			{  ret(NOT); }
+"&&"			{  ret(AND); }
+"||"			{  ret(OR); }
 "<="			{  ret(LE_OP); }
 ">="			{  ret(GE_OP); }
 "=="			{  ret(EQ_OP); }
 "!="			{  ret(NE_OP); }
-";"			{  ret(';'); }
-"{"			{  ret('{'); }
-"}"			{  ret('}'); }
 "<"			{  ret('<'); }
 ">"			{  ret('>'); }
-","			{  ret(','); }
-"="			{  ret('='); }
-"("			{  ret('('); }
-")"			{  ret(')'); }
+
+
 "-"			{  ret('-'); }
 "+"			{  ret('+'); }
 "*"			{  ret('*'); }
 "/"			{  ret('/'); }
 "%"			{  ret('%'); }
+"("			{  ret('('); }
+")"			{  ret(')'); }
+
+
+";"			{  ret(';'); }
+"{"			{  ret('{'); }
+"}"			{  ret('}'); }
+"["			{  ret('['); }
+"]"			{  ret(']'); }
+","			{  ret(','); }
+"="			{  ret('='); }
 
 [ \v\f]			{  }
 \t			{ yycolumn += 8 - yycolumn%8; }

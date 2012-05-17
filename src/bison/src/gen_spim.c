@@ -385,7 +385,7 @@ static int gen_exp(struct ast_node *node, int ri)
 	int rl, rr;
 	switch(node->id)
 	{
-	case UMINUS: func = "subu";break;
+		//case UMINUS: func = "subu";break;
 	case '+': func = "addu";break;
 	case '-': func = "subu";break;
 	case '*': func = "mul";break;
@@ -394,9 +394,9 @@ static int gen_exp(struct ast_node *node, int ri)
 	case 'I': return gen_leaf(get_child(node), ri);
 	default: printf("gen_exp error\n");exit(1);
 	}
-	if(node->id == UMINUS)
-		gen_r(func, ri, _ZERO, gen_exp(get_child(node), _V1));
-	else
+	//if(node->id == UMINUS)
+	//gen_r(func, ri, _ZERO, gen_exp(get_child(node), _V1));
+	//else
 	{
 		get_lr_child(node, &l, &r);
 		rl = gen_exp(l, _V1);
