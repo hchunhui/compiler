@@ -33,37 +33,6 @@ static void gen(enum fct x, long y, long z)
 	cx++;
 }
 
-static void get_lr_child(struct ast_node *node,
-			 struct ast_node **l,
-			 struct ast_node **r)
-{
-	struct ast_node *p;
-	int i;
-	i = 0;
-	list_for_each_entry(p, &node->chlds, sibling)
-	{
-		if(i == 0)
-			*l = p;
-		else if(i == 1)
-			*r = p;
-		i++;
-	}
-	if(i != 2)
-	{
-		printf("error get_lr_child\n");
-		exit(1);
-	}
-}
-
-static struct ast_node *get_child(struct ast_node *node)
-{
-	struct ast_node *p;
-	list_for_each_entry(p, &node->chlds, sibling)
-		return p;
-	printf("error get_child\n");
-	exit(1);
-}
-
 static void gen_leaf(struct ast_node *node)
 {
 	struct sym_entry *entry;

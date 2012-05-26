@@ -3,8 +3,403 @@
 #include "file.h"
 #include "ast_node.h"
 #include "sym_tab.h"
+#include "type.h"
 #include "gen.h"
+#include "error.h"
 struct sym_tab *symtab;
+static struct type *curr_type;
+
+#define new_error_p(...) do { new_error(__VA_ARGS__); err++; } while(0)
+static int err;
+
+struct ast_node *mknode(int type, int id, ...);
+struct ast_node *mkleafi(int type, int ival);
+struct ast_node *mkleafb(int type, int ival);
+struct ast_node *mkleaff(int type, float fval);
+struct ast_node *mkleafp(int type, void *pval);
+static void setloc(struct ast_node *node, int line, int col);
+static void
+decl_sym(int row, int col, char *name, struct type *type, struct list_head *args, struct ast_node *iexp);
+static struct sym_entry
+*def_sym(int row, int col, char *name, struct type *type, struct list_head *args, struct ast_node *iexp);
+
+#define exp_action2(ret, loc, op, arg1, arg2)   \
+	do { \
+	ret = mknode(NT_EXP, op, arg1, arg2, NULL); \
+	setloc(ret, loc.first_line, loc.first_column); \
+	}while(0)
+
+#define exp_action1(ret, loc, op, arg)	   \
+	do { \
+	ret = mknode(NT_EXP, op, arg, NULL); \
+	setloc(ret, loc.first_line, loc.first_column); \
+	}while(0)
+%}
+
+%union {
+	float fval;
+	int ival;
+	char *name;
+	struct ast_node *node;
+	struct type *tptr;
+	struct list_head *lptr;
+	struct {
+		struct type *type;
+		char *name;
+	} type_name;
+	struct {
+		struct type *type;
+		struct list_head *args;
+		char *name;
+		struct ast_node *exp;
+	} decl_def;
+	struct sym_entry *sym_entry;
+}
+
+%locations
+
+%token IDENTIFIER NUMBER FNUMBER BNUMBER STRING
+
+/* keywords */
+%token TYPEDEF INT VOID FLOAT BOOL IF ELSE WHILE BREAK RETURN FOR CONTINUE
+%token READ WRITE
+%token CONST
+
+%token LE_OP GE_OP EQ_OP NE_OP NOT AND OR
+
+%start program
+%left ','
+%right '='
+%left OR
+%left AND
+%left '|'
+%left '&'
+%left NE_OP EQ_OP
+%left '>' GE_OP '<' LE_OP
+%left '+' '-'
+%left '*' '/' '%'
+%right PREFIX
+%left  SUFFIX '(' '['
+%nonassoc HIGH
+%nonassoc IF_NO_ELSE
+%nonassoc ELSE
+
+%type <fval> FNUMBER
+%type <ival> NUMBER BNUMBER
+%type <name> IDENTIFIER
+%type <ival> INT VOID FLOAT BOOL
+%type <ival> IF WHILE
+%type <node> stmts stmt exp exp_list
+%type <sym_entry> xdef
+
+%type <ival> STRING
+%type <ival>  '='
+%type <ival>  OR
+%type <ival>  AND
+%type <ival>  '|'
+%type <ival>  '&'
+%type <ival>  NE_OP EQ_OP
+%type <ival>  '<' '>' LE_OP GE_OP
+%type <ival>  '+' '-'
+%type <ival>  '*' '/' '%'
+%type <ival>  NOT '~'
+
+%type <tptr> type0 type1
+%type <decl_def> decl0 decl00 decl01
+%type <type_name> arg
+%type <lptr> arg_list
+%destructor { free($$); } IDENTIFIER
+%error-verbose
+/*%define parse.lac full*/
+%%
+
+program : decl;
+
+decl
+	: decl xdecl
+	| decl xdef vdecl stmts '}' {
+		$2->sfunc.stmts = $4;
+		$2->sfunc.sym = symtab;
+		symtab = symtab->uplink;
+	}
+	| /* E */
+	;
+
+xdecl	: decl_list ';' ;
+xdef	: decl0 '{' {
+	$$ = def_sym(@$.first_line,
+		     @$.first_column,
+		     $1.name, $1.type, $1.args, $1.exp); } ;
+
+vdecl
+	: vdecl xdecl
+	| /* E */
+	;
+
+decl0
+	: type1 decl01 { curr_type = $1; $$ = $2; } ;
+decl_list
+	: type1 decl_list0 { curr_type = $1; } ;
+type1
+	: type0 { $$ = curr_type; curr_type = $1; } ;
+decl_list0
+	: decl01 {
+		decl_sym(@$.first_line,
+			 @$.first_column,
+			 $1.name, $1.type, $1.args, $1.exp); }
+	| decl_list0 ',' decl01 {
+		decl_sym(@$.first_line,
+			 @$.first_column,
+			 $3.name, $3.type, $3.args, $3.exp); }
+	;
+decl01
+	: decl00 { $$ = $1; $$.exp = NULL; }
+	| decl00 '=' exp { $$ = $1; $$.exp = $3; }
+	| decl00 '=' '{' exp_list '}' { $$ = $1; $$.exp = $4; }
+	;
+
+decl00
+	: IDENTIFIER { $$.type = curr_type; $$.name = $1; $$.args = NULL;}
+	| decl00 '[' NUMBER ']'{
+		$$.type = array_type($1.type, $3);
+		$$.name = $1.name;
+		$$.args = $1.args;
+	}
+	| decl00 '(' arg_list ')' {
+		$$.type = func_type($1.type, $3);
+		$$.name = $1.name;
+		$$.args = $3;
+	}
+	| decl00 '(' ')' {
+		$$.type = get_type(TYPE_FUNC, 0,
+				   get_type(TYPE_VOID, 0, NULL, NULL),
+				   $1.type);
+		$$.name = $1.name;
+		$$.args = NULL;
+	}
+	;
+type0
+	: INT	{ $$ = get_type(TYPE_INT, 0, NULL, NULL); }
+	| VOID	{ $$ = get_type(TYPE_VOID, 0, NULL, NULL); }
+	| FLOAT	{ $$ = get_type(TYPE_FLOAT, 0, NULL, NULL); }
+	| BOOL	{ $$ = get_type(TYPE_BOOL, 0, NULL, NULL); }
+	;
+arg_list
+	: arg { $$ = type_list_start($1.type, $1.name); }
+	| arg_list ',' arg { $$ = type_list_add($1, $3.type, $3.name); }
+	;
+arg
+	: type0 IDENTIFIER { $$.type = $1; $$.name = $2; }
+	| arg '[' NUMBER ']' { $$.type = array_type($1.type, $3); $$.name = $1.name; }
+	| arg '(' arg_list ')' { $$.type = func_type($1.type, $3); $$.name = $1.name; }
+	| arg '(' ')'
+	{
+		$$.type = get_type(TYPE_FUNC, 0,
+			      get_type(TYPE_VOID, 0, NULL, NULL),
+			      $1.type);
+		$$.name = $1.name;
+	}
+	;
+
+exp_list
+	: exp
+	{
+		$$ = mknode(NT_EXPLIST, 0, $1, NULL);
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	| exp_list ',' exp
+	{
+		$$ = $1;
+		ast_node_add_chld($1, $3);
+	}
+	;
+exp
+	: NUMBER
+	{
+		$$ = mknode(NT_EXP, 'N',
+			    mkleafi(NT_NUMBER, $1),
+			    NULL);
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	| FNUMBER
+	{
+		$$ = mknode(NT_EXP, 'N',
+			    mkleaff(NT_NUMBER, $1),
+			    NULL);
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	| BNUMBER
+	{
+		$$ = mknode(NT_EXP, 'N',
+			    mkleafb(NT_NUMBER, $1),
+			    NULL);
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	| IDENTIFIER
+	{
+		struct sym_entry *e;
+		e = symtab_lookup(symtab, $1, 1);
+		if(!e)
+			new_error_p(0,
+				    @$.first_line,
+				    @$.first_column,
+				    "找不到符号 %s\n", $1);
+		$$ = mknode(NT_EXP, 'I',
+			    mkleafp(NT_IDENT, e),
+			    NULL);
+		free($1);
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	| exp '(' ')'
+	{
+		$$ = mknode(NT_EXP, 'F', $1, NULL);
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	| exp '(' exp_list ')'
+	{
+		$$ = mknode(NT_EXP, 'F', $1, $3, NULL);
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	| exp '[' exp ']' {
+		if($1->type == NT_EXP &&
+		   $1->id == 'A')
+		{
+			ast_node_add_chld($1, $3);
+			$$ = $1;
+		}
+		else
+			exp_action2($$, @$, 'A', $1, $3);
+	  }
+	| exp '=' exp	{ exp_action2($$, @$, $2, $1, $3); }
+	| exp OR exp	{ exp_action2($$, @$, $2, $1, $3); }
+	| exp AND exp	{ exp_action2($$, @$, $2, $1, $3); }
+	| exp '|' exp	{ exp_action2($$, @$, $2, $1, $3); }
+	| exp '&' exp	{ exp_action2($$, @$, $2, $1, $3); }
+	| exp NE_OP exp	{ exp_action2($$, @$, $2, $1, $3); }
+	| exp EQ_OP exp	{ exp_action2($$, @$, $2, $1, $3); }
+	| exp '>' exp	{ exp_action2($$, @$, $2, $1, $3); }
+	| exp '<' exp	{ exp_action2($$, @$, $2, $1, $3); }
+	| exp GE_OP exp	{ exp_action2($$, @$, $2, $1, $3); }
+	| exp LE_OP exp	{ exp_action2($$, @$, $2, $1, $3); }
+	| exp '+' exp	{ exp_action2($$, @$, $2, $1, $3); }
+	| exp '-' exp	{ exp_action2($$, @$, $2, $1, $3); }
+	| exp '*' exp	{ exp_action2($$, @$, $2, $1, $3); }
+	| exp '/' exp	{ exp_action2($$, @$, $2, $1, $3); }
+	| exp '%' exp	{ exp_action2($$, @$, $2, $1, $3); }
+	| '+' exp %prec PREFIX	{ exp_action1($$, @$, $1, $2); }
+	| '-' exp %prec PREFIX	{ exp_action1($$, @$, $1, $2); }
+	| NOT exp %prec PREFIX	{ exp_action1($$, @$, $1, $2); }
+	| '~' exp %prec PREFIX	{ exp_action1($$, @$, $1, $2); }
+	| '(' exp ')' %prec HIGH
+	{
+		$$ = $2;
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	;
+
+stmt
+	: exp ';'	{ $$ = $1; }
+	| '{' stmts '}'	{ $$ = $2; }
+	| ';'
+	{
+		$$ = mknode(NT_NUL, 0, NULL);
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	| error ';'
+	{
+		$$ = mknode(NT_NUL, 0, NULL);
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	| IF '(' exp ')' stmt %prec IF_NO_ELSE
+	{
+		$$ = mknode(NT_IF, 0, $3, $5, NULL);
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	| IF '(' exp ')' stmt ELSE stmt
+	{
+		$$ = mknode(NT_IF, 1, $3, $5, $7, NULL);
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	| WHILE '(' exp ')' stmt
+	{
+		$$ = mknode(NT_WHILE, 0, $3, $5, NULL);
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	| FOR '(' exp ';' exp ';' exp ')' stmt
+	{
+		$$ = mknode(NT_BLOCK, 0,
+			    $3,
+			    mknode(NT_WHILE, 0, $5,
+				   mknode(NT_BLOCK, 0,
+					  $9, $7, NULL),
+				   NULL),
+			    NULL);
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	| BREAK ';'
+	{
+		$$ = mknode(NT_BREAK, 0, NULL);
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	| CONTINUE ';'
+	{
+		$$ = mknode(NT_CONTINUE, 0, NULL);
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	| RETURN exp ';'
+	{
+		$$ = mknode(NT_RETURN, 1, $2, NULL);
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	| RETURN ';'
+	{
+		$$ = mknode(NT_RETURN, 0, NULL);
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	| WRITE '(' STRING ')' ';'
+	{
+		$$ = mknode(NT_WRITES, $3, NULL);
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	| WRITE '(' exp ')' ';'
+	{
+		$$ = mknode(NT_WRITEE, 0, $3, NULL);
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	| READ '(' exp_list ')' ';'
+	{
+		$$ = mknode(NT_READ, 0, $3, NULL);
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	;
+stmts
+	: stmts stmt
+	{
+		ast_node_add_chld($1, $2);
+		$$ = $1;
+	}
+	| /* E */
+	{
+		$$ = ast_node_new(NT_BLOCK, 0);
+		setloc($$, @$.first_line, @$.first_column);
+	}
+	;
+%%
+void type_init();
+int parse()
+{
+	int ret;
+//	yydebug = 1;
+	err = 0;
+	type_init();
+	ret = yyparse();
+	ret = ret || err;
+	if(ret)
+		fprintf(stderr, "\nFAIL\n");
+	else
+		fprintf(stderr, "\nPASS\n");
+	return ret;
+}
 
 struct ast_node *mknode(int type, int id, ...)
 {
@@ -21,8 +416,24 @@ struct ast_node *mknode(int type, int id, ...)
 struct ast_node *mkleafi(int type, int ival)
 {
 	struct ast_node *ptr;
-	ptr = ast_node_new(type, 0);
+	ptr = ast_node_new(type, TYPE_INT);
 	ptr->ival = ival;
+	return ptr;
+}
+
+struct ast_node *mkleafb(int type, int ival)
+{
+	struct ast_node *ptr;
+	ptr = ast_node_new(type, TYPE_BOOL);
+	ptr->ival = ival;
+	return ptr;
+}
+
+struct ast_node *mkleaff(int type, float fval)
+{
+	struct ast_node *ptr;
+	ptr = ast_node_new(type, TYPE_FLOAT);
+	ptr->fval = fval;
 	return ptr;
 }
 
@@ -34,236 +445,134 @@ struct ast_node *mkleafp(int type, void *pval)
 	return ptr;
 }
 
-void setloc(struct ast_node *node, int line, int col)
+static void setloc(struct ast_node *node, int line, int col)
 {
 	node->first_line = line;
 	node->first_column = col;
 }
 
-#define exp_action2(ret, loc, op, arg1, arg2)   \
-	do { \
-	ret = mknode(NT_EXP, op, arg1, arg2, NULL); \
-	setloc(ret, loc.first_line, loc.first_column); \
-	}while(0)
+static void decl_sym(int row,
+		     int col,
+		     char *name,
+		     struct type *type,
+		     struct list_head *args,
+		     struct ast_node *iexp)
+{
+	struct sym_entry *e;
+	struct type_list *tle, *tmp;
+	e = symtab_lookup(symtab, name, 0);
+	if(e)
+	{
+		if(e->type != type)
+			new_error_p(0,
+				    row,
+				    col,
+				    "符号 %s 类型与之前声明不匹配\n", name);
+		if(!type_is_func(e->type))
+			new_error_p(0,
+				    row,
+				    col,
+				    "符号 %s 不是函数\n", name);
+	}
+	else
+		e = symtab_enter(symtab, name, type);
+	new_remark("sym %s, type ", name);
+	dump_type(type, stderr);
+	new_eol();
+	free(name);
 
-#define exp_action1(ret, loc, op, arg)	   \
-	do { \
-	ret = mknode(NT_EXP, op, arg, NULL); \
-	setloc(ret, loc.first_line, loc.first_column); \
-	}while(0)
-%}
+	if(iexp && type_is_func(e->type))
+	{
+		new_error_p(0,
+			    row,
+			    col,
+			    "不能对函数初始化\n", name);
+	}
+	if(iexp && type_is_var(e->type))
+	{
+		e->svar.iexp = iexp;
+		if(type_is_array(e->type) && iexp->type != NT_EXPLIST ||
+		   type_is_var(e->type) && !type_is_array(e->type)
+		   && iexp->type != NT_EXP)
+			new_error_p(0,
+				    row,
+				    col,
+				    "初始化错误\n", name);
+	}
 
-%union {
-	int ival;
-	char *name;
-	struct ast_node *node;
-	struct sym_tab *symt;
+	if(args)
+	{
+		list_for_each_entry_rev(tle, tmp, args, list)
+		{
+			list_del(&tle->list);
+			free(tle);
+		}
+		free(args);
+	}
 }
 
-%locations
-
-%token IDENTIFIER NUMBER
-
-/* keywords */
-%token TYPEDEF INT VOID FLOAT BOOL TRUE FALSE IF ELSE WHILE BREAK RETURN
-%token READ WRITE
-%token CONST
-
-%token LE_OP GE_OP EQ_OP NE_OP NOT AND OR
-
-%start program
-
-%right '='
-%left OR
-%left AND
-%left '|'
-%left '&'
-%left NE_OP EQ_OP
-%left '>' GE_OP '<' LE_OP
-%left '+' '-'
-%left '*' '/' '%'
-%right UNARY
-
-%type <ival> NUMBER
-%type <name> IDENTIFIER funcdecl1
-%type <ival> INT VOID FLOAT BOOL
-%type <ival> IF WHILE
-%type <node> stmts stmt exp
-
-%type <ival>  '='
-%type <ival>  OR
-%type <ival>  AND
-%type <ival>  '|'
-%type <ival>  '&'
-%type <ival>  NE_OP EQ_OP
-%type <ival>  '<' '>' LE_OP GE_OP
-%type <ival>  '+' '-'
-%type <ival>  '*' '/' '%'
-%type <ival>  NOT '~'
-
-%destructor { free($$); } IDENTIFIER
-%error-verbose
-/*%define parse.lac full*/
-%%
-
-program : decl;
-decl
-	: decl vardecl
-	| decl funcdecl
-	| /* E */
-	;
-vdecl
-	: vdecl vardecl
-	| /* E */
-	{
-		symtab = symtab_new(symtab);
-	}
-	;
-funcdecl
-	: funcdecl1 vdecl stmts '}'
-	{
-		symtab_modify_func(symtab->uplink, $1, $3, symtab);
-		free($1);
-		symtab = symtab->uplink;
-	}
-	;
-funcdecl1
-	: VOID IDENTIFIER '(' ')' '{'
-	{
-		symtab_enter_func(symtab, $2);
-		$$ = $2;
-	}
-	;
-vardecl
-	: INT varlist ';'
-	;
-varlist
-	: vardef
-	| varlist ',' vardef
-	;
-vardef
-	: IDENTIFIER
-	{
-		symtab_enter_var(symtab, $1);
-		free($1);
-	}
-	| IDENTIFIER '=' NUMBER
-	{
-		symtab_enter_const(symtab, $1, $3);
-		free($1);
-	}
-	;
-exp
-	: NUMBER
-	{
-		$$ = mknode(NT_EXP, 'N',
-			    mkleafi(NT_NUMBER, $1),
-			    NULL);
-		setloc($$, @$.first_line, @$.first_column);
-	}
-	| IDENTIFIER
-	{
-		$$ = mknode(NT_EXP, 'I',
-			    mkleafp(NT_IDENT,
-				    symtab_lookup(symtab, $1)),
-			    NULL);
-		free($1);
-		setloc($$, @$.first_line, @$.first_column);
-	}
-	| exp '=' exp { exp_action2($$, @$, $2, $1, $3); }
-	| exp OR exp { exp_action2($$, @$, $2, $1, $3); }
-	| exp AND exp { exp_action2($$, @$, $2, $1, $3); }
-	| exp '|' exp { exp_action2($$, @$, $2, $1, $3); }
-	| exp '&' exp { exp_action2($$, @$, $2, $1, $3); }
-	| exp NE_OP exp { exp_action2($$, @$, $2, $1, $3); }
-	| exp EQ_OP exp { exp_action2($$, @$, $2, $1, $3); }
-	| exp '>' exp { exp_action2($$, @$, $2, $1, $3); }
-	| exp '<' exp { exp_action2($$, @$, $2, $1, $3); }
-	| exp GE_OP exp { exp_action2($$, @$, $2, $1, $3); }
-	| exp LE_OP exp { exp_action2($$, @$, $2, $1, $3); }
-	| exp '+' exp { exp_action2($$, @$, $2, $1, $3); }
-	| exp '-' exp { exp_action2($$, @$, $2, $1, $3); }
-	| exp '*' exp { exp_action2($$, @$, $2, $1, $3); }
-	| exp '/' exp { exp_action2($$, @$, $2, $1, $3); }
-	| exp '%' exp { exp_action2($$, @$, $2, $1, $3); }
-	| '+' exp %prec UNARY { exp_action1($$, @$, $1, $2); }
-	| '-' exp %prec UNARY { exp_action1($$, @$, $1, $2); }
-	| NOT exp %prec UNARY { exp_action1($$, @$, $1, $2); }
-	| '~' exp %prec UNARY { exp_action1($$, @$, $1, $2); }
-	| '(' exp ')'
-	{
-		$$ = $2;
-		setloc($$, @$.first_line, @$.first_column);
-	}
-	;
-
-stmt
-	: IDENTIFIER '=' exp ';'
-	{
-		$$ = mknode(NT_ASSIGN,
-			    $2,
-			    mkleafp(NT_IDENT,
-				    symtab_lookup(symtab, $1)),
-			    $3,
-			    NULL);
-		free($1);
-		setloc($$, @$.first_line, @$.first_column);
-	}
-	| IDENTIFIER '(' ')' ';'
-	{
-		$$ = mknode(NT_CALL,
-			    0,
-			    mkleafp(NT_IDENT,
-				    symtab_lookup(symtab, $1)),
-			    NULL);
-		free($1);
-		setloc($$, @$.first_line, @$.first_column);
-	}
-	| '{' stmts '}'
-	{
-		$$ = $2;
-		setloc($$, @$.first_line, @$.first_column);
-	}
-	| IF '(' exp ')' stmt
-	{
-		$$ = mknode(NT_IF, 0, $3, $5, NULL);
-		setloc($$, @$.first_line, @$.first_column);
-	}
-	| WHILE '(' exp ')' stmt
-	{
-		$$ = mknode(NT_WHILE, 0, $3, $5, NULL);
-		setloc($$, @$.first_line, @$.first_column);
-	}
-	| ';'
-	{
-		$$ = NULL;
-	}
-	| error ';'
-	{
-		$$ = NULL;
-	}
-	;
-stmts
-	: stmts stmt
-	{
-		ast_node_add_chld($1, $2);
-		$$ = $1;
-	}
-	| /* E */
-	{
-		$$ = ast_node_new(NT_BLOCK, 0);
-		setloc($$, @$.first_line, @$.first_column);
-	}
-	;
-%%
-
-int parse()
+static struct sym_entry
+*def_sym(int row,
+	 int col,
+	 char *name,
+	 struct type *type,
+	 struct list_head *args,
+	 struct ast_node *iexp)
 {
-	int ret;
-	//yydebug = 1;
-	if(ret = yyparse())
-		fprintf(stderr, "\nFAIL\n");
+	struct sym_entry *e, *ee;
+	struct type_list *tle, *tmp;
+	e = symtab_lookup(symtab, name, 0);
+	if(e)
+	{
+		if(!type_is_func(e->type))
+			new_error_p(0,
+				    row,
+				    col,
+				    "符号 %s 不是函数\n", name);
+		if(e->type != type)
+			new_error_p(0,
+				    row,
+				    col,
+				    "符号 %s 类型不匹配\n", name);
+		if(e->sfunc.defined)
+			new_error_p(0,
+				    row,
+				    col,
+				    "符号 %s 重定义\n", name);
+	}
 	else
-		fprintf(stderr, "\nPASS\n");
-	return ret;
+		e = symtab_enter(symtab, name, type);
+	if(iexp && type_is_func(e->type))
+	{
+		new_error_p(0,
+			    row,
+			    col,
+			    "不能对函数初始化\n", name);
+	}
+	if(type_is_func(e->type))
+		e->sfunc.defined = 1;
+	new_remark("sym %s, type ", name);
+	dump_type(type, stderr);
+	new_eol();
+	free(name);
+	
+	symtab = symtab_new(symtab);
+	if(args)
+	{
+		list_for_each_entry_rev(tle, tmp, args, list)
+		{
+			new_remark("args: %s  ", tle->name);
+			dump_type(tle->type, stderr);
+			new_eol();
+
+			ee = symtab_enter(symtab, tle->name, tle->type);
+			ee->svar.is_param = 1;
+			
+				
+			list_del(&tle->list);
+			free(tle);
+		}
+		free(args);		
+	}
+	return e;
 }

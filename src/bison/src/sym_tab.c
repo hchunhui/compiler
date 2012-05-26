@@ -3,6 +3,7 @@
 #include <string.h>
 #include "sym_tab.h"
 #include "ast_node.h"
+#include "error.h"
 
 #define xmalloc(x, len)					\
 	do {						\
@@ -12,12 +13,6 @@
 		exit(1); \
 	} \
 	} while(0)
-
-int new_error(char *str)
-{
-	puts(str);
-	exit(1);
-}
 
 /* JS Hash Function */
 static unsigned int strhash(char *_str)
@@ -60,58 +55,44 @@ static struct sym_entry *new_entry(struct sym_tab *ptab, char *name)
 	return entry;
 }
 
-void symtab_enter_func(struct sym_tab *ptab, char *name)
+struct sym_entry *
+symtab_enter(struct sym_tab *ptab, char *name, struct type *type)
 {
 	struct sym_entry *entry;
 	if(find_entry(ptab, name))
-		new_error("dup name");
+		new_error(1,
+			  0,
+			  0, "符号重名\n");
 	entry = new_entry(ptab, name);
-	entry->type = SYM_FUNC;
-	entry->sfunc.stmts = NULL;
-	entry->sfunc.sym = NULL;
+	entry->type = type;
+	switch(type->type == TYPE_FUNC)
+	{
+	case TYPE_FUNC:
+		entry->sfunc.stmts = NULL;
+		entry->sfunc.sym = NULL;
+		entry->sfunc.addr = 0;
+		entry->sfunc.defined = 0;
+		break;
+	case TYPE_INT:
+	case TYPE_FLOAT:
+	case TYPE_BOOL:
+		entry->svar.is_param = 0;
+		break;
+	}
+	return entry;
 }
 
-void symtab_modify_func(struct sym_tab *ptab,
-		       char *name,
-		       struct ast_node *stmts,
-		       struct sym_tab  *sym)
+struct sym_entry *symtab_lookup(struct sym_tab *ptab, char *name, int follow)
 {
 	struct sym_entry *entry;
-	if(!(entry = find_entry(ptab, name)))
-		new_error("can't find name");
-	entry->sfunc.stmts = stmts;
-	entry->sfunc.sym = sym;
-}
-
-void symtab_enter_var(struct sym_tab *ptab, char *name)
-{
-	struct sym_entry *entry;
-	if(find_entry(ptab, name))
-		new_error("dup name");
-	entry = new_entry(ptab, name);
-	entry->type = SYM_VAR;
-}
-
-void symtab_enter_const(struct sym_tab *ptab, char *name, int val)
-{
-	struct sym_entry *entry;
-	if(find_entry(ptab, name))
-		new_error("dup name");
-	entry = new_entry(ptab, name);
-	entry->type = SYM_CONST;
-	entry->sconst.value = val;
-}
-
-struct sym_entry *symtab_lookup(struct sym_tab *ptab, char *name)
-{
-	struct sym_entry *entry;
+	if(!follow)
+		return find_entry(ptab, name);
 	while(ptab)
 	{
 		if(entry = find_entry(ptab, name))
 			return entry;
 		ptab = ptab->uplink;
 	}
-	new_error("no name");
 	return NULL;
 }
 
@@ -129,5 +110,12 @@ struct sym_tab *symtab_new(struct sym_tab *uplink)
 
 void symtab_destroy(struct sym_tab *ptab)
 {
-	
+	int i;
+	struct sym_entry *e, *tmp;
+	list_for_each_entry_safe(e, tmp, &ptab->order, order)
+	{
+		list_del(&e->order);
+		free(e);
+	}
+	free(ptab);
 }

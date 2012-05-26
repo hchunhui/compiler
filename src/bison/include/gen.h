@@ -10,7 +10,7 @@ struct gen_info
 };
 
 extern struct gen_info gen_c;
-extern struct gen_info gen_pl0sim;
+extern struct gen_info gen_eir;
 extern struct gen_info gen_spim;
 
 

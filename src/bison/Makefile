@@ -3,7 +3,7 @@ LD	 = gcc
 LEX      = flex -i -I 
 YACC     = bison -d -y -r all --debug
 
-OBJ	 = src/c0.tab.o src/c0.lex.o src/sym_tab.o src/gen_c.o src/gen_pl0sim.o src/gen_spim.o  ../file.o src/bc0c.o
+OBJ	 = src/c0.tab.o src/c0.lex.o src/sym_tab.o src/gen_c.o src/check.o src/gen_eir.o ../file.o src/bc0c.o src/type.o
 
 src/%.o : src/%.c
 	$(CC) -o $@ $<
@@ -14,6 +14,8 @@ src/%.tab.c : rule/%.y
 
 ../../bin/bc0c: $(OBJ)
 	$(LD) -o $@ $(OBJ)
+type: src/type.tab.o src/type.lex.o
+	$(LD) -o $@ src/type.tab.o src/type.lex.o
 all: clean ../../bin/bc0c
 clean:
 	rm -f src/*.lex.c src/*.tab.c src/*.tab.h *~

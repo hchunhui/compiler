@@ -1,7 +1,10 @@
 %{
 #include <stdio.h>
 #include "c0.tab.h"
+#include "error.h"
 
+char *strs[80];
+int strs_count = 0;
 #define ret(x) yylval.ival=x; return x
 
 int yycolumn = 0;
@@ -26,19 +29,35 @@ H	   [a-fA-F0-9]
 "float"			{  return(FLOAT); }
 "bool"			{  return(BOOL); }
 
-"true"			{  return(TRUE); }
-"false"			{  return(FALSE); }
-
 "if"			{  return(IF); }
 "else"			{  return(ELSE); }
 "while"			{  return(WHILE); }
 "break"			{  return(BREAK); }
 "return"		{  return(RETURN); }
+"for"			{  return(FOR); }
+"continue"		{  return(CONTINUE); }
+
+"const"			{  return(CONST); }
 
 "read"			{  return(READ); }
 "write"			{  return(WRITE); }
+\"[^\"]*\"			{
+	yylval.ival = strs_count;
+	strs[strs_count] = strdup(yytext+1);
+	strs[strs_count][yyleng-2] = 0;
+	strs_count++;
+	return(STRING);
+}
 
-"const"			{  return(CONST); }
+"true"			{
+	yylval.ival = 1;
+	return(BNUMBER);
+}
+
+"false"			{
+	yylval.ival = 0;
+	return(BNUMBER);
+}
 
 {L}({L}|{D})*		{
 	
@@ -62,6 +81,10 @@ H	   [a-fA-F0-9]
 	return(NUMBER);
    }
 
+{D}+\.{D}+		{
+	yylval.fval = strtof(yytext, NULL);
+	return(FNUMBER);
+	 }
 
 "&"			{  ret('&'); }
 "|"			{  ret('|'); }
@@ -98,7 +121,7 @@ H	   [a-fA-F0-9]
 
 [ \v\f]			{  }
 \t			{ yycolumn += 8 - yycolumn%8; }
-\n			{yycolumn = 0;}
+[\n\r]			{yycolumn = 0;}
 .			{ printf("unmatched: %s\n", yytext); return 1; }
 
 %%
@@ -110,11 +133,10 @@ int yywrap(void)
 
 void yyerror(char const *s)
 {
-	fflush(stdout);
-	printf("Error@(%d:%d): %s\n",
-	       yylloc.first_line,
-	       yylloc.first_column,
-	       s);
+	new_error(1,
+		  yylloc.first_line,
+		  yylloc.first_column,
+		  "%s\n", s);
 	/*printf("\n%*s\n%*s\n",
 	       yylloc.first_column,
 	       "^",

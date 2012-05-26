@@ -8,9 +8,9 @@ const char magic2[]="c0o";
 
 struct file_inst
 {
-	uint16_t f;
-	uint16_t l;
-	uint32_t a;
+	int16_t f;
+	int16_t l;
+	int32_t a;
 };
 
 static int match_magic(FILE *fin, const char *magic)

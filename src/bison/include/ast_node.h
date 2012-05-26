@@ -13,6 +13,7 @@ struct ast_node {
 	union {
 		void *pval;
 		int ival;
+		float fval;
 		struct list_head chlds;
 	};
 };
@@ -42,8 +43,15 @@ static inline struct ast_node *ast_node_new(int type, int id)
 
 static inline void ast_node_delete(struct ast_node *ptr)
 {
-	/* FIXME */
-	//free(ptr);
+	struct ast_node *p;
+	struct ast_node *tmp;
+	if(!(ptr->type&T_LEAF))
+		list_for_each_entry_safe(p, tmp, &ptr->chlds, sibling)
+		{
+			list_del(&p->sibling);
+			ast_node_delete(p);
+		}
+	free(ptr);
 }
 
 static inline void ast_node_add_chld(
@@ -52,6 +60,33 @@ static inline void ast_node_add_chld(
 {
 	if(chld)
 		list_add_tail(&chld->sibling, &fath->chlds);
+}
+
+static inline void get_lr_child(struct ast_node *node,
+				struct ast_node **l,
+				struct ast_node **r)
+{
+	struct ast_node *p;
+	int i;
+	i = 0;
+	list_for_each_entry(p, &node->chlds, sibling)
+	{
+		if(i == 0)
+			*l = p;
+		else if(i == 1)
+			*r = p;
+		i++;
+	}
+	if(i != 2)
+		*r = NULL;
+}
+
+static inline struct ast_node *get_child(struct ast_node *node)
+{
+	struct ast_node *p;
+	list_for_each_entry(p, &node->chlds, sibling)
+		return p;
+	return NULL;
 }
 
 enum {

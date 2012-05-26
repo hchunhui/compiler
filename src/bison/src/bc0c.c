@@ -6,10 +6,11 @@
 
 int parse();
 
+extern struct gen_info check;
 struct gen_info *gi[] = {
-	&gen_pl0sim,
+	&gen_eir,
 	&gen_c,
-	&gen_spim,
+	&check,
 	NULL,
 };
 
@@ -24,7 +25,7 @@ int main(int argc, char **argv)
 	/* get options */
 	FILE *infile;
 	int i;
-	char *mach = "pl0sim";
+	char *mach = "eir";
 	char *inf = NULL;
 	char *outf = "a.out";
 	int opt;
@@ -86,8 +87,12 @@ int main(int argc, char **argv)
 	
 	symtab = symtab_new(NULL);
 	yyin = infile;
+	fprintf(stderr, "syntax check\n");
 	if(parse())
 		return 1;
+	fprintf(stderr, "semantic check\n");
+	check.gen_code(symtab, NULL);
+	fprintf(stderr, "code generation\n");
 	for(i = 0; gi[i]; i++)
 	{
 		if(strcmp(mach, gi[i]->name) == 0)
