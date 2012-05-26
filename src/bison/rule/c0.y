@@ -61,9 +61,9 @@ static struct sym_entry
 %token IDENTIFIER NUMBER FNUMBER BNUMBER STRING
 
 /* keywords */
-%token TYPEDEF INT VOID FLOAT BOOL IF ELSE WHILE BREAK RETURN FOR CONTINUE
+%token TYPEDEF IF ELSE WHILE BREAK RETURN FOR CONTINUE
 %token READ WRITE
-%token CONST
+%token CONST ATYPE
 
 %token LE_OP GE_OP EQ_OP NE_OP NOT AND OR
 
@@ -87,8 +87,8 @@ static struct sym_entry
 %type <fval> FNUMBER
 %type <ival> NUMBER BNUMBER
 %type <name> IDENTIFIER
-%type <ival> INT VOID FLOAT BOOL
 %type <ival> IF WHILE
+%type <tptr> ATYPE
 %type <node> stmts stmt exp exp_list
 %type <sym_entry> xdef
 
@@ -104,7 +104,7 @@ static struct sym_entry
 %type <ival>  '*' '/' '%'
 %type <ival>  NOT '~'
 
-%type <tptr> type0 type1
+%type <tptr> type
 %type <decl_def> decl0 decl00 decl01
 %type <type_name> arg
 %type <lptr> arg_list
@@ -137,11 +137,11 @@ vdecl
 	;
 
 decl0
-	: type1 decl01 { curr_type = $1; $$ = $2; } ;
+	: type decl01 { curr_type = $1; $$ = $2; } ;
 decl_list
-	: type1 decl_list0 { curr_type = $1; } ;
-type1
-	: type0 { $$ = curr_type; curr_type = $1; } ;
+	: type decl_list0 { curr_type = $1; } ;
+type
+	: ATYPE { $$ = curr_type; curr_type = $1; } ;
 decl_list0
 	: decl01 {
 		decl_sym(@$.first_line,
@@ -178,18 +178,12 @@ decl00
 		$$.args = NULL;
 	}
 	;
-type0
-	: INT	{ $$ = get_type(TYPE_INT, 0, NULL, NULL); }
-	| VOID	{ $$ = get_type(TYPE_VOID, 0, NULL, NULL); }
-	| FLOAT	{ $$ = get_type(TYPE_FLOAT, 0, NULL, NULL); }
-	| BOOL	{ $$ = get_type(TYPE_BOOL, 0, NULL, NULL); }
-	;
 arg_list
 	: arg { $$ = type_list_start($1.type, $1.name); }
 	| arg_list ',' arg { $$ = type_list_add($1, $3.type, $3.name); }
 	;
 arg
-	: type0 IDENTIFIER { $$.type = $1; $$.name = $2; }
+	: ATYPE IDENTIFIER { $$.type = $1; $$.name = $2; }
 	| arg '[' NUMBER ']' { $$.type = array_type($1.type, $3); $$.name = $1.name; }
 	| arg '(' arg_list ')' { $$.type = func_type($1.type, $3); $$.name = $1.name; }
 	| arg '(' ')'
@@ -391,7 +385,6 @@ int parse()
 	int ret;
 //	yydebug = 1;
 	err = 0;
-	type_init();
 	ret = yyparse();
 	ret = ret || err;
 	if(ret)

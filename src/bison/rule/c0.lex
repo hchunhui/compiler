@@ -1,8 +1,11 @@
 %{
 #include <stdio.h>
 #include "c0.tab.h"
+#include "sym_tab.h"
+#include "type.h"
 #include "error.h"
 
+extern struct sym_tab *symtab;
 char *strs[80];
 int strs_count = 0;
 #define ret(x) yylval.ival=x; return x
@@ -24,10 +27,6 @@ H	   [a-fA-F0-9]
 \/\*[^\*]*\*(([^\*\/][^\*]*)?\*)*\/ {  }
 
 "typedef"		{  return(TYPEDEF); }
-"int"			{  return(INT); }
-"void"			{  return(VOID); }
-"float"			{  return(FLOAT); }
-"bool"			{  return(BOOL); }
 
 "if"			{  return(IF); }
 "else"			{  return(ELSE); }
@@ -60,7 +59,13 @@ H	   [a-fA-F0-9]
 }
 
 {L}({L}|{D})*		{
-	
+	struct sym_entry *e;
+	e = symtab_lookup(symtab, yytext, 1);
+	if(e && type_is_type(e->type))
+	{
+		yylval.tptr = e->type->t2;
+		return(ATYPE);
+	}
 	yylval.name = strdup(yytext);
 	return(IDENTIFIER);
    }
