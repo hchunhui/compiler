@@ -122,6 +122,22 @@ decl
 		$2->sfunc.sym = symtab;
 		symtab = symtab->uplink;
 	}
+	| decl TYPEDEF type decl00 ';'
+	{
+		struct sym_entry *tle, *tmp;
+		symtab_enter(symtab, $4.name,
+			     get_type(TYPE_TYPE, 0, NULL, $4.type));
+		curr_type = $3;
+		if($4.args)
+		{
+			list_for_each_entry_rev(tle, tmp, $4.args, list)
+			{
+				list_del(&tle->list);
+				free(tle);
+			}
+			free($4.args);
+		}
+	}
 	| /* E */
 	;
 
