@@ -149,17 +149,6 @@ static int  gen_code(struct sym_tab *ptab);
 
 static FILE *fp;
 
-static int type_len(struct type *t)
-{
-	int i;
-	int lim;
-	if(type_is_var(t) && !type_is_array(t))
-		return 1;
-	if(!type_is_var(t))
-		return 0;
-	return t->n * type_len(t->t2);
-}
-
 static void gen_lval(struct ast_node *node, int op)
 {
 	struct sym_entry *e;
@@ -293,20 +282,13 @@ static void gen_exp(struct ast_node *node, int need_reload)
 		{
 			gen_array_num(l);
 			gen_lval(l, sar);
-			if(need_reload)
-			{
-				gen_array_num(l);
-				gen_lval(l, lar);
-			}
 		}
 		else
 		{
 			gen_lval(l, sto);
-			if(need_reload)
-			{
-				gen_lval(l, lod);
-			}
 		}
+		if(need_reload)
+			geni(Int, 0, 1);
 		return;
 	case 'F':
 		get_lr_child(node, &l, &r);

@@ -46,4 +46,7 @@ void dump_type(struct type *t, FILE *fp);
 
 struct list_head *type_list_start(struct type *type, char *name);
 struct list_head *type_list_add(struct list_head *h, struct type *type, char *name);
+
+int type_len(struct type *t);
+void type_init();
 #endif /* _TYPE_H_ */
