@@ -1,6 +1,6 @@
 TYPE(EXP, "exp")
 TYPE(IF, "if")
-TYPE(WHILE, "while")
+TYPE(FOR, "for")
 TYPE(EXPLIST, "exp_list")
 TYPE(BLOCK, "block")
 TYPE(BREAK, "break")

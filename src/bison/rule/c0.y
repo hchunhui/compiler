@@ -89,7 +89,7 @@ static struct sym_entry
 %type <name> IDENTIFIER
 %type <ival> IF WHILE
 %type <tptr> ATYPE
-%type <node> stmts stmt exp exp_list
+%type <node> stmts stmt exp exp_list exp_or_not
 %type <sym_entry> xdef
 
 %type <ival> STRING
@@ -299,14 +299,16 @@ exp
 	}
 	;
 
-stmt
-	: exp ';'	{ $$ = $1; }
-	| '{' stmts '}'	{ $$ = $2; }
-	| ';'
+exp_or_not
+	:/* E */
 	{
 		$$ = mknode(NT_NUL, 0, NULL);
 		setloc($$, @$.first_line, @$.first_column);
 	}
+	| exp		{ $$ = $1; }
+stmt
+	: exp_or_not ';'{ $$ = $1; }
+	| '{' stmts '}'	{ $$ = $2; }
 	| error ';'
 	{
 		$$ = mknode(NT_NUL, 0, NULL);
@@ -324,19 +326,17 @@ stmt
 	}
 	| WHILE '(' exp ')' stmt
 	{
-		$$ = mknode(NT_WHILE, 0, $3, $5, NULL);
+		struct ast_node *nul1, *nul2;
+		nul1 = mknode(NT_NUL, 0, NULL);
+		nul2 = mknode(NT_NUL, 0, NULL);
+		$$ = mknode(NT_FOR, 0, nul1, $3, $5, nul2, NULL);
 		setloc($$, @$.first_line, @$.first_column);
 	}
-	| FOR '(' exp ';' exp ';' exp ')' stmt
+	| FOR '(' exp_or_not ';' exp_or_not ';' exp_or_not ')' stmt
 	{
-		$$ = mknode(NT_BLOCK, 0,
-			    $3,
-			    mknode(NT_WHILE, 0, $5,
-				   mknode(NT_BLOCK, 0,
-					  $9, $7, NULL),
-				   NULL),
-			    NULL);
+		$$ = mknode(NT_FOR, 0, $3, $5, $9, $7, NULL);
 		setloc($$, @$.first_line, @$.first_column);
+
 	}
 	| BREAK ';'
 	{

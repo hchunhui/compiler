@@ -8,7 +8,7 @@
 /* forward decl */
 static void gen_exp(struct ast_node *node);
 static void gen_if(struct ast_node *node);
-static void gen_while(struct ast_node *node);
+static void gen_for(struct ast_node *node);
 static void gen_stmt(struct ast_node *node);
 static void gen_block(struct ast_node *block);
 static void gen_code(struct sym_tab *ptab);
@@ -31,6 +31,7 @@ static void gen_exp(struct ast_node *node)
 	struct ast_node *p, *l, *r;
 	struct sym_entry *entry;
 	char *func;
+	if(node->type == NT_NUL) return;
 	switch(node->id)
 	{
 	case '+':func = "+";break;
@@ -61,14 +62,14 @@ static void gen_exp(struct ast_node *node)
 	case 'i':
 	case 'b':
 		fprintf(fp,"%d ", node->ival);
-		break;
+		return;
 	case 'f':
 		fprintf(fp,"%f ", node->fval);
-		break;
+		return;
 	case 'I':
 		entry = node->pval;
 		fprintf(fp,"%s ", entry->name);
-		break;
+		return;
 	case 'A':
 		i = 0;
 		list_for_each_entry(p, &node->chlds, sibling)
@@ -138,14 +139,35 @@ static void gen_if(struct ast_node *node)
 	}
 }
 
-static void gen_while(struct ast_node *node)
+static void gen_for(struct ast_node *node)
 {
+	int i;
+	struct ast_node *p;
 	struct ast_node *exp, *stmt;
-	get_lr_child(node, &exp, &stmt);
-	fprintf(fp,"while(");
-	gen_exp(exp);
-	fprintf(fp,") ");
-	gen_stmt(stmt);
+	fprintf(fp, "for (");
+	i = 0;
+	list_for_each_entry(p, &node->chlds, sibling)
+	{
+		switch(i)
+		{
+		case 0: /* init */
+			gen_exp(p);
+			fprintf(fp, ";");
+			break;
+		case 1: /* cond */
+			gen_exp(p);
+			fprintf(fp, ";");
+			break;
+		case 2: /* stmt */
+			fprintf(fp, ")\n{");
+			gen_stmt(p);
+			break;
+		case 3: /* inc */
+			gen_exp(p);
+			fprintf(fp, ";\n}\n");
+		}
+		i++;
+	}
 }
 
 static void gen_stmt(struct ast_node *node)
@@ -163,8 +185,8 @@ static void gen_stmt(struct ast_node *node)
 	case NT_IF:
 		gen_if(node);
 		break;
-	case NT_WHILE:
-		gen_while(node);
+	case NT_FOR:
+		gen_for(node);
 		break;
 	case NT_NUL:
 		fprintf(fp, ";\n");
@@ -172,7 +194,15 @@ static void gen_stmt(struct ast_node *node)
 	case NT_BLOCK:
 		fprintf(fp,"{\n");gen_block(node);fprintf(fp,"}\n");
 		break;
+	case NT_READ:
+	case NT_WRITES:
+	case NT_WRITEE:
+		fprintf(fp, "/*read/write*/\n");
+		break;
 	case NT_BREAK:
+		fprintf(fp, "break;\n");
+		break;
+	case NT_CONTINUE:
 		fprintf(fp, "break;\n");
 		break;
 	case NT_RETURN:

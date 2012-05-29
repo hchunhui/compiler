@@ -122,7 +122,7 @@ static struct type *gen_exp(struct ast_node *node)
 {
 	struct ast_node *p, *l, *r;
 	struct type *lt, *rt;
-
+	if(node->type == NT_NUL) return get_type(TYPE_VOID, 0, NULL, NULL);
 	switch(node->id)
 	{
 	case 'i':
@@ -235,21 +235,39 @@ static void gen_if(struct ast_node *node)
 	}
 }
 
-static void gen_while(struct ast_node *node)
+static void gen_for(struct ast_node *node)
 {
-	struct ast_node *exp, *stmt;
+	int i;
+	struct ast_node *p;
 	struct type *t;
 	int saved_in_while;
 	saved_in_while = in_while;
 	in_while = 1;
-	get_lr_child(node, &exp, &stmt);
-	t = gen_exp(exp);
-	if(!type_is_var(t) || type_is_array(t))
-		new_error_p(0,
-			  node->first_line,
-			  node->first_column,
-			  "while条件错\n");
-	gen_stmt(stmt);
+
+	i = 0;
+	list_for_each_entry(p, &node->chlds, sibling)
+	{
+		switch(i)
+		{
+		case 0: /* init */
+			gen_exp(p);
+			break;
+		case 1: /* cond */
+			t = gen_exp(p);
+			if(!type_is_var(t) || type_is_array(t))
+				new_error_p(0,
+					    node->first_line,
+					    node->first_column,
+					    "while条件错\n");
+			break;
+		case 2: /* stmt */
+			gen_stmt(p);
+			break;
+		case 3: /* inc */
+			gen_exp(p);
+		}
+		i++;
+	}
 	in_while = saved_in_while;
 }
 
@@ -275,8 +293,8 @@ static void gen_stmt(struct ast_node *node)
 	case NT_IF:
 		gen_if(node);
 		break;
-	case NT_WHILE:
-		gen_while(node);
+	case NT_FOR:
+		gen_for(node);
 		break;
 	case NT_BLOCK:
 		gen_block(node);

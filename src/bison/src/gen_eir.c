@@ -141,7 +141,7 @@ static void geno(enum fct f, int l, int o)
 /* forward decl */
 static void gen_exp(struct ast_node *node, int);
 static void gen_if(struct ast_node *node);
-static void gen_while(struct ast_node *node);
+static void gen_for(struct ast_node *node);
 static void gen_stmt(struct ast_node *node);
 static void gen_block(struct ast_node *block);
 static int  gen_code(struct sym_tab *ptab);
@@ -221,6 +221,7 @@ static void gen_exp(struct ast_node *node, int need_reload)
 	int cj1, cj2;
 	struct ast_node *l, *r;
 	int func;
+	if(node->type == NT_NUL) return;
 	switch(node->id)
 	{
 	case '+':func = add;    break;
@@ -384,31 +385,45 @@ static void gen_if(struct ast_node *node)
 	put_label(l_next);
 }
 
-static void gen_while(struct ast_node *node)
+static void gen_for(struct ast_node *node)
 {
-	struct ast_node *exp, *stmt;
+	int i;
+	struct ast_node *p;
 	struct sym_entry *l_head, *l_next, *l_jmp, *save_next, *save_jmp;
 	l_head = get_new_label();
 	l_next = get_new_label();
 	l_jmp = get_new_label();
+
 	save_jmp = while_jmp;
 	while_jmp = l_jmp;
 	save_next = while_next;
 	while_next = l_next;
-	
-	get_lr_child(node, &exp, &stmt);
-	put_label(l_head);
-	gen_exp(exp, 1);
-	
-	use_label(l_next);
-	geni(jpc, 0, 0);
-
-	put_label(l_jmp);
-	gen_stmt(stmt);
-	use_label(l_head);
-	geni(jmp, 0, 0);
-
-	put_label(l_next);
+	i = 0;
+	list_for_each_entry(p, &node->chlds, sibling)
+	{
+		switch(i)
+		{
+		case 0: /* init */
+			gen_exp(p, 0);
+			break;
+		case 1: /* cond */
+			put_label(l_head);
+			gen_exp(p, 1);
+			use_label(l_next);
+			geni(jpc, 0, 0);
+			break;
+		case 2: /* stmt */
+			gen_stmt(p);
+			break;
+		case 3: /* inc */
+			put_label(l_jmp);
+			gen_exp(p, 0);
+			use_label(l_head);
+			geni(jmp, 0, 0);
+			put_label(l_next);
+		}
+		i++;
+	}
 
 	while_next = save_next;
 	while_jmp = save_jmp;
@@ -441,8 +456,8 @@ static void gen_stmt(struct ast_node *node)
 	case NT_IF:
 		gen_if(node);
 		break;
-	case NT_WHILE:
-		gen_while(node);
+	case NT_FOR:
+		gen_for(node);
 		break;
 	case NT_NUL:
 		break;
