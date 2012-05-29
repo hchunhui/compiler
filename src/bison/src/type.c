@@ -127,6 +127,13 @@ void dump_type(struct type *t, FILE *fp)
 		dump_type(t->t2, fp);
 		fprintf(fp,")");
 		break;
+	case TYPE_LABEL:
+		fprintf(fp,"label");
+		break;
+	case TYPE_TYPE:
+		fprintf(fp,"type: ");
+		dump_type(t->t2, fp);
+		break;
 	default:
 		fprintf(fp,"\n错误：%d\n", t->type);
 		exit(1);
@@ -158,8 +165,6 @@ struct list_head *type_list_add(struct list_head *h, struct type *type, char *na
 
 int type_len(struct type *t)
 {
-	int i;
-	int lim;
 	if(type_is_var(t) && !type_is_array(t))
 		return 1;
 	if(!type_is_var(t))

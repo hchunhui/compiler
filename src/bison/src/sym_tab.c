@@ -65,7 +65,7 @@ symtab_enter(struct sym_tab *ptab, char *name, struct type *type)
 			  0, "符号重名\n");
 	entry = new_entry(ptab, name);
 	entry->type = type;
-	switch(type->type == TYPE_FUNC)
+	switch(type->type)
 	{
 	case TYPE_FUNC:
 		entry->sfunc.stmts = NULL;
@@ -110,7 +110,6 @@ struct sym_tab *symtab_new(struct sym_tab *uplink)
 
 void symtab_destroy(struct sym_tab *ptab)
 {
-	int i;
 	struct sym_entry *e, *tmp;
 	list_for_each_entry_safe(e, tmp, &ptab->order, order)
 	{

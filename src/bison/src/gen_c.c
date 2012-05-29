@@ -141,7 +141,6 @@ static void gen_if(struct ast_node *node)
 static void gen_while(struct ast_node *node)
 {
 	struct ast_node *exp, *stmt;
-	struct sym_entry *e;
 	get_lr_child(node, &exp, &stmt);
 	fprintf(fp,"while(");
 	gen_exp(exp);

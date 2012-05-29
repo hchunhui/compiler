@@ -102,7 +102,6 @@ static struct type *gen_array(struct ast_node *node)
 static struct type *gen_lval(struct ast_node *node)
 {
 	struct sym_entry *e;
-	int check;
 	if(node->type == NT_EXP && node->id == 'I')
 	{
 		e = node->pval;
@@ -121,7 +120,6 @@ static struct type *gen_lval(struct ast_node *node)
 
 static struct type *gen_exp(struct ast_node *node)
 {
-	int i;
 	struct ast_node *p, *l, *r;
 	struct type *lt, *rt;
 
@@ -240,7 +238,6 @@ static void gen_if(struct ast_node *node)
 static void gen_while(struct ast_node *node)
 {
 	struct ast_node *exp, *stmt;
-	struct sym_entry *e;
 	struct type *t;
 	int saved_in_while;
 	saved_in_while = in_while;

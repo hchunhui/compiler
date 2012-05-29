@@ -6,7 +6,7 @@
 #include "error.h"
 
 extern struct sym_tab *symtab;
-char *strs[80];
+char *strs[256];
 int strs_count = 0;
 #define ret(x) yylval.ival=x; return x
 
@@ -41,6 +41,10 @@ H	   [a-fA-F0-9]
 "read"			{  return(READ); }
 "write"			{  return(WRITE); }
 \"[^\"]*\"			{
+	if(strs_count >= 256)
+	{
+		new_error(1, 0, 0, "too many strs\n");
+	}
 	yylval.ival = strs_count;
 	strs[strs_count] = strdup(yytext+1);
 	strs[strs_count][yyleng-2] = 0;

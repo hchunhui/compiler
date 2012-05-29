@@ -139,7 +139,6 @@ static void geno(enum fct f, int l, int o)
 }
 
 /* forward decl */
-static void gen_leaf(struct ast_node *leaf);
 static void gen_exp(struct ast_node *node, int);
 static void gen_if(struct ast_node *node);
 static void gen_while(struct ast_node *node);
@@ -187,7 +186,7 @@ static void gen_array_num(struct ast_node *node)
 	int i;
 	int lim;
 	struct ast_node *p, *l, *r;
-	struct type *tlt, *trt;
+	struct type *tlt;
 	get_lr_child(node, &l, &r);
 	i = 0;
 	list_for_each_entry(p, &node->chlds, sibling)
@@ -219,10 +218,8 @@ static void gen_array_num(struct ast_node *node)
 
 static void gen_exp(struct ast_node *node, int need_reload)
 {
-	int i;
 	int cj1, cj2;
-	struct ast_node *p, *l, *r;
-	struct sym_entry *e;
+	struct ast_node *l, *r;
 	int func;
 	switch(node->id)
 	{
@@ -390,7 +387,6 @@ static void gen_if(struct ast_node *node)
 static void gen_while(struct ast_node *node)
 {
 	struct ast_node *exp, *stmt;
-	struct sym_entry *e;
 	struct sym_entry *l_head, *l_next, *l_jmp, *save_next, *save_jmp;
 	l_head = get_new_label();
 	l_next = get_new_label();
@@ -420,7 +416,6 @@ static void gen_while(struct ast_node *node)
 
 static void gen_read(struct ast_node *list)
 {
-	struct ast_node *asgn;
 	struct ast_node *exp;
 	if(list)
 		list_for_each_entry(exp, &list->chlds, sibling)

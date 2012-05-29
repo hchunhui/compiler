@@ -1,4 +1,4 @@
-CC       = gcc -g -c -Iinclude -I../../include
+CC       = gcc -Wall -O3 -c -Iinclude -I../../include
 LD	 = gcc
 LEX      = flex -i -I 
 YACC     = bison -d -y -r all --debug
