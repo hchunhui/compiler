@@ -10,6 +10,4 @@ TYPE(NUL, "null_stmt")
 TYPE(WRITES, "writes")
 TYPE(WRITEE, "writee")
 TYPE(READ, "read")
-LEAF_START()
-TYPE(NUMBER, "number")
-TYPE(IDENT, "ident")
+

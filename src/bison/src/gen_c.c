@@ -6,7 +6,6 @@
 #include "error.h"
 
 /* forward decl */
-static void gen_leaf(struct ast_node *leaf);
 static void gen_exp(struct ast_node *node);
 static void gen_if(struct ast_node *node);
 static void gen_while(struct ast_node *node);
@@ -15,27 +14,6 @@ static void gen_block(struct ast_node *block);
 static void gen_code(struct sym_tab *ptab);
 
 static FILE *fp;
-
-static void gen_leaf(struct ast_node *node)
-{
-	struct sym_entry *entry;
-	switch(node->type)
-	{
-	case NT_NUMBER:
-		if(node->id == TYPE_FLOAT)
-			fprintf(fp,"%f ", node->fval);
-		else
-			fprintf(fp,"%d ", node->ival);
-		break;
-	case NT_IDENT:
-		entry = node->pval;
-		fprintf(fp,"%s ", entry->name);
-		break;
-	default:
-		fprintf(fp,"gen_leaf error\n");
-		exit(1);
-	}
-}
 
 static void gen_explist(struct ast_node *list)
 {
@@ -51,6 +29,7 @@ static void gen_exp(struct ast_node *node)
 {
 	int i;
 	struct ast_node *p, *l, *r;
+	struct sym_entry *entry;
 	char *func;
 	switch(node->id)
 	{
@@ -79,8 +58,17 @@ static void gen_exp(struct ast_node *node)
 		gen_explist(r);
 		fprintf(fp, ")");
 		return; 
-	case 'N':
-	case 'I': gen_leaf(get_child(node));return;
+	case 'i':
+	case 'b':
+		fprintf(fp,"%d ", node->ival);
+		break;
+	case 'f':
+		fprintf(fp,"%f ", node->fval);
+		break;
+	case 'I':
+		entry = node->pval;
+		fprintf(fp,"%s ", entry->name);
+		break;
 	case 'A':
 		i = 0;
 		list_for_each_entry(p, &node->chlds, sibling)

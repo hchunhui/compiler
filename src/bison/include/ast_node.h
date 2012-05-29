@@ -18,8 +18,6 @@ struct ast_node {
 	};
 };
 
-#define T_LEAF 0x8000
-
 #define xmalloc(x, len)					\
 	do {						\
 	x = malloc(len);				\
@@ -36,22 +34,8 @@ static inline struct ast_node *ast_node_new(int type, int id)
 	ptr->type = type;
 	ptr->id = id;
 	INIT_LIST_HEAD(&ptr->sibling);
-	if(!(type&T_LEAF))
-		INIT_LIST_HEAD(&ptr->chlds);
+	INIT_LIST_HEAD(&ptr->chlds);
 	return ptr;
-}
-
-static inline void ast_node_delete(struct ast_node *ptr)
-{
-	struct ast_node *p;
-	struct ast_node *tmp;
-	if(!(ptr->type&T_LEAF))
-		list_for_each_entry_safe(p, tmp, &ptr->chlds, sibling)
-		{
-			list_del(&p->sibling);
-			ast_node_delete(p);
-		}
-	free(ptr);
 }
 
 static inline void ast_node_add_chld(
@@ -91,7 +75,6 @@ static inline struct ast_node *get_child(struct ast_node *node)
 
 enum {
 #define TYPE(a, b) NT_##a,
-#define LEAF_START() NT_NONE = T_LEAF,
 #include "node_type.h"
 #undef TYPE
 };

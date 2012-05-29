@@ -163,7 +163,8 @@ static int type_len(struct type *t)
 static void gen_lval(struct ast_node *node, int op)
 {
 	struct sym_entry *e;
-	while(node->type != NT_IDENT)
+	
+	while(node->id != 'I')
 		node = get_child(node);
 	e = node->pval;
 	if(e->tab->uplink)
@@ -175,48 +176,11 @@ static void gen_lval(struct ast_node *node, int op)
 static void gen_call(struct ast_node *node)
 {
 	struct sym_entry *e;
-	while(node->type != NT_IDENT)
+	while(node->id != 'I')
 		node = get_child(node);
 	e = node->pval;
 	refill[cx] = e;
 	geni(cal, 1, 0);
-}
-
-static void gen_leaf(struct ast_node *node)
-{
-	int i, len;
-	struct sym_entry *entry;
-	switch(node->type)
-	{
-	case NT_NUMBER:
-		switch(node->id)
-		{
-		case TYPE_FLOAT:
-			genf(lit, 0, node->fval);
-			break;
-		case TYPE_INT:
-			geni(lit, 0, node->ival);
-			break;
-		case TYPE_BOOL:
-			genb(lit, 0, node->ival);
-			break;
-		}
-		break;
-	case NT_IDENT:
-		entry = node->pval;
-		/*if(type_is_array(entry->type))
-		{
-			len = type_len(entry->type);
-			for(i = len-1; i >= 0; i--)
-			{
-				geni(lit, 0, i);
-				geni(lit, 0, len);
-				gen_lval(node, lar);
-			}
-		}
-		else*/ gen_lval(node, lod);
-		break;
-	}
 }
 
 static void gen_explist(struct ast_node *list)
@@ -241,7 +205,6 @@ static void gen_array_num(struct ast_node *node)
 	{
 		if(i == 0)
 		{
-			l = get_child(l);
 			tlt = ((struct sym_entry *)l->pval)->type;
 			lim = 1;
 		}
@@ -350,10 +313,21 @@ static void gen_exp(struct ast_node *node, int need_reload)
 		gen_explist(r);
 		gen_call(l);
 		goto clean_stack;
-	case 'N':
+	case 'f':
+		if(need_reload)
+			genf(lit, 0, node->fval);
+		return;
+	case 'i':
+		if(need_reload)
+			geni(lit, 0, node->ival);
+		return;
+	case 'b':
+		if(need_reload)
+			genb(lit, 0, node->ival);
+		return;
 	case 'I':
 		if(need_reload)
-			gen_leaf(get_child(node));
+			gen_lval(node, lod);
 		return;
 	case 'A':
 		gen_array_num(node);

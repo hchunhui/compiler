@@ -14,7 +14,6 @@
  * 4. 常量计算
  */
 /* forward decl */
-static struct type *gen_leaf(struct ast_node *leaf);
 static struct type *gen_exp(struct ast_node *node);
 static void gen_if(struct ast_node *node);
 static void gen_while(struct ast_node *node);
@@ -104,14 +103,9 @@ static struct type *gen_lval(struct ast_node *node)
 {
 	struct sym_entry *e;
 	int check;
-	if(node->type == NT_IDENT)
-	{
-		e = node->pval;
-		return e->type;
-	}
 	if(node->type == NT_EXP && node->id == 'I')
 	{
-		e = get_child(node)->pval;
+		e = node->pval;
 		return e->type;
 	}
 	if(node->type == NT_EXP && node->id == 'A')
@@ -125,34 +119,27 @@ static struct type *gen_lval(struct ast_node *node)
 	return get_type(TYPE_VOID, 0, NULL, NULL);
 }
 
-static struct type *gen_leaf(struct ast_node *node)
-{
-	struct sym_entry *entry;
-	switch(node->type)
-	{
-	case NT_NUMBER:
-		return get_type(node->id, 0, NULL, NULL);
-	case NT_IDENT:
-		return gen_lval(node);
-	default:
-		new_error_p(1,
-			  node->first_line,
-			  node->first_column,
-			  "内部错误\n");
-	}
-}
-
 static struct type *gen_exp(struct ast_node *node)
 {
 	int i;
 	struct ast_node *p, *l, *r;
 	struct type *lt, *rt;
-	
-	get_lr_child(node, &l, &r);
+
 	switch(node->id)
 	{
-	case 'N': case 'I':
-		return gen_leaf(get_child(node));
+	case 'i':
+		return get_type(TYPE_INT, 0, NULL, NULL);
+	case 'f':
+		return get_type(TYPE_FLOAT, 0, NULL, NULL);
+	case 'b':
+		return get_type(TYPE_BOOL, 0, NULL, NULL);
+	case 'I':
+		return gen_lval(node);
+	}
+	get_lr_child(node, &l, &r);
+	
+	switch(node->id)
+	{
 	case EQ_OP: case NE_OP: case '<': case GE_OP: case '>': case LE_OP:
 	case AND: case OR: case NOT:
 		return get_type(TYPE_BOOL, 0, NULL, NULL);

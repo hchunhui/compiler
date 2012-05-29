@@ -13,10 +13,10 @@ static struct type *curr_type;
 static int err;
 
 struct ast_node *mknode(int type, int id, ...);
-struct ast_node *mkleafi(int type, int ival);
-struct ast_node *mkleafb(int type, int ival);
-struct ast_node *mkleaff(int type, float fval);
-struct ast_node *mkleafp(int type, void *pval);
+struct ast_node *mkleafi(int type, int id, int ival);
+struct ast_node *mkleafb(int type, int id, int ival);
+struct ast_node *mkleaff(int type, int id, float fval);
+struct ast_node *mkleafp(int type, int id, void *pval);
 static void setloc(struct ast_node *node, int line, int col);
 static void
 decl_sym(int row, int col, char *name, struct type *type, struct list_head *args, struct ast_node *iexp);
@@ -226,23 +226,17 @@ exp_list
 exp
 	: NUMBER
 	{
-		$$ = mknode(NT_EXP, 'N',
-			    mkleafi(NT_NUMBER, $1),
-			    NULL);
+		$$ = mkleafi(NT_EXP, 'i', $1);
 		setloc($$, @$.first_line, @$.first_column);
 	}
 	| FNUMBER
 	{
-		$$ = mknode(NT_EXP, 'N',
-			    mkleaff(NT_NUMBER, $1),
-			    NULL);
+		$$ = mkleaff(NT_EXP, 'f', $1);
 		setloc($$, @$.first_line, @$.first_column);
 	}
 	| BNUMBER
 	{
-		$$ = mknode(NT_EXP, 'N',
-			    mkleafb(NT_NUMBER, $1),
-			    NULL);
+		$$ = mkleafi(NT_EXP, 'b', $1);
 		setloc($$, @$.first_line, @$.first_column);
 	}
 	| IDENTIFIER
@@ -254,9 +248,7 @@ exp
 				    @$.first_line,
 				    @$.first_column,
 				    "找不到符号 %s\n", $1);
-		$$ = mknode(NT_EXP, 'I',
-			    mkleafp(NT_IDENT, e),
-			    NULL);
+		$$ = mkleafp(NT_EXP, 'I', e);
 		free($1);
 		setloc($$, @$.first_line, @$.first_column);
 	}
@@ -422,34 +414,26 @@ struct ast_node *mknode(int type, int id, ...)
 	return ptr;
 }
 
-struct ast_node *mkleafi(int type, int ival)
+struct ast_node *mkleafi(int type, int id, int ival)
 {
 	struct ast_node *ptr;
-	ptr = ast_node_new(type, TYPE_INT);
+	ptr = ast_node_new(type, id);
 	ptr->ival = ival;
 	return ptr;
 }
 
-struct ast_node *mkleafb(int type, int ival)
+struct ast_node *mkleaff(int type, int id, float fval)
 {
 	struct ast_node *ptr;
-	ptr = ast_node_new(type, TYPE_BOOL);
-	ptr->ival = ival;
-	return ptr;
-}
-
-struct ast_node *mkleaff(int type, float fval)
-{
-	struct ast_node *ptr;
-	ptr = ast_node_new(type, TYPE_FLOAT);
+	ptr = ast_node_new(type, id);
 	ptr->fval = fval;
 	return ptr;
 }
 
-struct ast_node *mkleafp(int type, void *pval)
+struct ast_node *mkleafp(int type, int id, void *pval)
 {
 	struct ast_node *ptr;
-	ptr = ast_node_new(type, 0);
+	ptr = ast_node_new(type, id);
 	ptr->pval = pval;
 	return ptr;
 }
