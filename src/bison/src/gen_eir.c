@@ -239,20 +239,23 @@ static void gen_exp(struct ast_node *node, int need_reload)
 	case '%': func = mod;   break;
 	case AND:
 		get_lr_child(node, &l, &r);
-		geni(lit, 0, 0);
+		if(need_reload)
+			geni(lit, 0, 0);
 		gen_exp(l, 1);
 		cj1 = cx;
 		geni(jpc, 0, 0);
 		gen_exp(r, 1);
 		cj2 = cx;
 		geni(jpc, 0, 0);
-		geno(opr, 0, notnot);
+		if(need_reload)
+			geno(opr, 0, notnot);
 		code[cj1].v.i = cx;
 		code[cj2].v.i = cx;
 		goto clean_stack;
 	case OR:
 		get_lr_child(node, &l, &r);
-		geni(lit, 0, 1);
+		if(need_reload)
+			geni(lit, 0, 1);
 		gen_exp(l, 1);
 		geno(opr, 0, notnot);
 		cj1 = cx;
@@ -261,7 +264,8 @@ static void gen_exp(struct ast_node *node, int need_reload)
 		geno(opr, 0, notnot);
 		cj2 = cx;
 		geni(jpc, 0, 0);
-		geno(opr, 0, notnot);
+		if(need_reload)
+			geno(opr, 0, notnot);
 		code[cj1].v.i = cx;
 		code[cj2].v.i = cx;
 		goto clean_stack;
@@ -323,9 +327,10 @@ static void gen_exp(struct ast_node *node, int need_reload)
 	get_lr_child(node, &l, &r);
 	if(r)
 	{
-		gen_exp(l, 1);
-		gen_exp(r, 1);
-		geno(opr, 0, func);
+		gen_exp(l, need_reload);
+		gen_exp(r, need_reload);
+		if(need_reload)
+			geno(opr, 0, func);
 	}
 	else
 	{
@@ -333,9 +338,11 @@ static void gen_exp(struct ast_node *node, int need_reload)
 			func = neg;
 		else if(func == add)
 			return;
-		gen_exp(l, 1);
-		geno(opr, 0, func);
+		gen_exp(l, need_reload);
+		if(need_reload)
+			geno(opr, 0, func);
 	}
+	return;
 clean_stack:
 	if(!need_reload)
 		geni(Int, 0, -1);
