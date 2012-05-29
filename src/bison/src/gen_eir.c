@@ -289,7 +289,7 @@ static void gen_exp(struct ast_node *node, int need_reload)
 	case '=':
 		get_lr_child(node, &l, &r);
 		gen_exp(r, 1);
-		if(l->type == NT_EXP && l->id == 'A')
+		if(l->id == 'A')
 		{
 			gen_array_num(l);
 			gen_lval(l, sar);
@@ -437,7 +437,7 @@ static void gen_read(struct ast_node *list)
 		list_for_each_entry(exp, &list->chlds, sibling)
 		{
 			geno(opr, _FLOAT, readd);
-			if(exp->type == NT_EXP && exp->id == 'A')
+			if(exp->id == 'A')
 			{
 				gen_array_num(exp);
 				gen_lval(exp, sar);
@@ -605,9 +605,7 @@ static int gen_code(struct sym_tab *ptab)
 			       entry->name,
 			       cx_func);
 			entry->sfunc.addr = cx_func;
-			t = entry->type;
-			while(t->type == TYPE_FUNC)
-				t = t->t2;
+			t = entry->sfunc.ret_type;
 			if(!type_is_void(t))
 				gen_init(t, 3);
 			gen_code(entry->sfunc.sym);

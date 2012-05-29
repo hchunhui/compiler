@@ -9,6 +9,7 @@ struct sym_tab;
 
 struct sym_func {
 	int defined;
+	struct type *ret_type;
 	struct ast_node *stmts;
 	struct sym_tab *sym;
 	unsigned int addr;

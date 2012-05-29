@@ -318,15 +318,18 @@ static void gen_block(struct ast_node *block)
 
 static void gen_code(struct sym_tab *ptab)
 {
+	struct type *ret_type;
 	struct sym_entry *entry;
 	list_for_each_entry(entry, &ptab->order, order)
 		if(type_is_func(entry->type))
 		{
 			if(!entry->sfunc.defined)
 				continue;
-			func_ret = entry->type;
-			while(func_ret->type == TYPE_FUNC)
-				func_ret = func_ret->t2;
+			ret_type = entry->type;
+			while(ret_type->type == TYPE_FUNC)
+				ret_type = ret_type->t2;
+			entry->sfunc.ret_type = ret_type;
+			func_ret = ret_type;
 			gen_code(entry->sfunc.sym);
 			gen_block(entry->sfunc.stmts);
 		}
