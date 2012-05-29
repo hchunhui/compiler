@@ -302,11 +302,13 @@ static void gen_exp(struct ast_node *node, int need_reload)
 		get_lr_child(node, &l, &r);
 		geni(lit, 0, 1);
 		gen_exp(l, 1);
+		geno(opr, 0, notnot);
 		cj1 = cx;
-		geni(jpe, 0, 0);
+		geni(jpc, 0, 0);
 		gen_exp(r, 1);
+		geno(opr, 0, notnot);
 		cj2 = cx;
-		geni(jpe, 0, 0);
+		geni(jpc, 0, 0);
 		geno(opr, 0, notnot);
 		code[cj1].v.i = cx;
 		code[cj2].v.i = cx;
