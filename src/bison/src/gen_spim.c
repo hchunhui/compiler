@@ -4,19 +4,44 @@
 #include "c0.tab.h"
 #include "gen.h"
 #include "list.h"
+#include "error.h"
 
 /* forward decl */
 static int gen_leaf(struct ast_node *leaf, int ri);
 static void gen_call(struct ast_node *node);
 static int gen_exp(struct ast_node *node, int ri);
-static void gen_cond(struct ast_node *node);
-static void gen_assign(struct ast_node *node);
+static int gen_assign(struct ast_node *node);
 static void gen_if(struct ast_node *node);
-static void gen_while(struct ast_node *node);
+static void gen_for(struct ast_node *node);
 static void gen_stmt(struct ast_node *node);
 static void gen_block(struct ast_node *block);
-static int gen_code(struct sym_tab *ptab);
+static void gen_code(struct sym_tab *ptab);
 
+extern char *strs[80];
+extern int strs_count;
+
+static FILE *fp;
+
+static int while_next, while_jmp;
+static int func_ret;
+static int str_table;
+static int get_new_label()
+{
+	static int n;
+	return n++;
+}
+
+static void put_label(int e)
+{
+	fprintf(fp, "_L%d:\n", e);
+}
+
+static char *use_label(int e)
+{
+	static char l[16];
+	sprintf(l, "_L%d", e);
+	return l;
+}
 
 const char *reg_name[32] = {
 	"0",
@@ -101,8 +126,6 @@ static struct reg_struct reg[32];
 struct list_head list_reg;
 struct list_head avail_reg;
 
-static int lcount;
-static FILE *fp;
 
 static int cx;
 static void gen_r(char *mnemonic, int rd, int rs, int rt)
@@ -207,12 +230,17 @@ static void reg_wb(struct reg_struct *r)
 {
 	if(r->sym)
 	{
-		if(r->sym->type == SYM_VAR && r->dirty)
+		if(type_is_var(r->sym->type) && r->dirty)
 		{
 			if(r->sym->tab->uplink)
-				gen_ls("sw", r - reg, -(r->sym->svar.offset+1)*4, _S8);
+				gen_ls("sw",
+				       r - reg,
+				       -(r->sym->svar.offset)*4, _S8);
 			else
-				gen_ls("sw", r - reg, (r->sym->svar.offset)*4, _GP);
+				gen_ls("sw",
+				       r - reg,
+				       (r->sym->svar.offset)*4,
+				       _GP);
 		}
 		r->sym->gen_data = NULL;
 		r->sym = NULL;
@@ -233,7 +261,7 @@ static void reg_wb_all()
 static void load(struct sym_entry *var)
 {
 	struct reg_struct *r;
-	if(var->type != SYM_VAR || !var->gen_data)
+	if(!type_is_var(var->type) || !var->gen_data)
 	{
 		fprintf(stderr, "load\n");
 		exit(1);
@@ -246,9 +274,13 @@ static void load(struct sym_entry *var)
 	if(!r->loaded)
 	{
 		if(var->tab->uplink)
-			gen_ls("lw", r - reg, -(r->sym->svar.offset+1)*4, _S8);
+			gen_ls("lw",
+			       r - reg,
+			       -(r->sym->svar.offset)*4, _S8);
 		else
-			gen_ls("lw", r - reg, (r->sym->svar.offset)*4, _GP);
+			gen_ls("lw",
+			       r - reg,
+			       (r->sym->svar.offset)*4, _GP);
 		gen_nop();
 		r->loaded = 1;
 	}
@@ -257,11 +289,6 @@ static void load(struct sym_entry *var)
 static int get_reg(struct sym_entry *var)
 {
 	struct reg_struct *r;
-	if(var->type != SYM_VAR)
-	{
-		fprintf(stderr, "get_reg\n");
-		exit(1);
-	}
 	if(var->gen_data)
 	{
 		r = var->gen_data;
@@ -295,248 +322,442 @@ found:
 	return r - reg;
 }
 
-static int gen_leaf(struct ast_node *node, int ri)
+static int gen_call_parm(struct ast_node *list)
 {
 	int r;
-	struct sym_entry *entry;
-	switch(node->type)
-	{
-	case NT_NUMBER:
-		if(node->ival == 0)
-			return _ZERO;
-		gen_li(ri, node->ival);
-		return ri;
-	case NT_IDENT:
-		entry = node->pval;
-		switch(entry->type)
+	int i;
+	struct ast_node *exp, *tmp;
+	i = 0;
+	if(list)
+		list_for_each_entry_rev(exp, tmp, &list->chlds, sibling)
 		{
-		case SYM_CONST:
-			if(entry->sconst.value == 0)
-				return _ZERO;
-			gen_li(ri, entry->sconst.value);
-			return ri;
-		case SYM_VAR:
-			r = get_reg(entry);
-			load(entry);
-			return r;
-		case SYM_FUNC:
-			printf("func error\n");
-			exit(1);
-			break;
+			i++;
+			r = gen_exp(exp, _V1);
+			gen_ls("sw", r, -4*i, _SP);
 		}
-		break;
-	default:
-		printf("gen_leaf error\n");
-		exit(1);
-	}
-	return 0;
+	gen_i("addiu", _SP, _SP, -4*i);
+	return i;
 }
 
 static void gen_call(struct ast_node *node)
 {
-	struct ast_node *p;
+	int count;
+	struct ast_node *l, *r;
 	struct sym_entry *e;
-	p = get_child(node);
-	e = p->pval;
-	if(e->type != SYM_FUNC) {
-		printf("func call error.\n");
-		exit(1);
-	}
+	get_lr_child(node, &l, &r);
+	e = l->pval;
+	gen_ls("sw", _V1, -4, _SP);
+	gen_ls("sw", _T9, -8, _SP);
+	gen_i("addiu", _SP, _SP, -8);
+	count = gen_call_parm(r);
 	reg_wb_all();
 	gen_j("jal", e->name);
 	gen_nop(); //分支延迟槽
+	gen_i("addiu", _SP, _SP, count*4);
+	gen_ls("lw", _T9, 0, _SP);
+	gen_i("addiu", _SP, _SP, 8);
+	gen_ls("lw", _V1, -4, _SP);
+	gen_nop();
 }
 
-static int gen_exp(struct ast_node *node, int ri)
+static int gen_assign(struct ast_node *node)
 {
-	struct ast_node *l, *r;
-	char *func;
-	int rl, rr;
-	switch(node->id)
-	{
-		//case UMINUS: func = "subu";break;
-	case '+': func = "addu";break;
-	case '-': func = "subu";break;
-	case '*': func = "mul";break;
-	case '/': func = "div";break;
-	case 'N':
-	case 'I': return gen_leaf(get_child(node), ri);
-	default: printf("gen_exp error\n");exit(1);
-	}
-	//if(node->id == UMINUS)
-	//gen_r(func, ri, _ZERO, gen_exp(get_child(node), _V1));
-	//else
-	{
-		get_lr_child(node, &l, &r);
-		rl = gen_exp(l, _V1);
-		rr = gen_exp(r, _T9);
-		if(node->id == '/')
-		{
-			gen_r(func, _ZERO, rl, rr);
-			fprintf(fp, "\tmflo $%s\n", reg_name[ri]);
-			reg[ri].dirty = 1;
-		}
-		else gen_r(func, ri, rl, rr);
-		
-	}
-	return ri;
-}
-
-static void gen_assign(struct ast_node *node)
-{
-	struct ast_node *id, *exp;
+	struct ast_node *id, *exp, *l, *r;
 	struct sym_entry *e;
 	int ri, rj;
 	int lev;
 
 	get_lr_child(node, &id, &exp);
-	e = id->pval;
-	if(e->type != SYM_VAR)
+	rj = gen_exp(exp, _V0);
+	if(id->id == 'I')
 	{
-		exit(2);
+		e = id->pval;
+		ri = get_reg(e);
+		if(ri != rj)
+			gen_r("addu", ri, _ZERO, rj);
+		return ri;
 	}
-	ri = get_reg(e);
-	rj = gen_exp(exp, ri);
-	if(ri != rj)
-		gen_r("addu", ri, _ZERO, rj);
+	else
+	{
+		get_lr_child(id, &l, &r);
+		ri = gen_exp(r, _AT);
+		if(ri != _AT)
+			gen_r("addu", _AT, _ZERO, ri);
+		gen_i("sll", _AT, _AT, 2);
+		e = l->pval;
+		if(e->tab->uplink)
+		{
+			gen_r("addu", _AT, _AT, _S8);
+			gen_ls("sw",
+			       rj,
+			       -(e->svar.offset)*4, _AT);
+		}
+		else
+		{
+			gen_r("addu", _AT, _AT, _GP);
+			gen_ls("sw",
+			       rj,
+			       (e->svar.offset)*4, _AT);
+		}
+		return rj;
+	}
+}
+
+static int gen_exp(struct ast_node *node, int ri)
+{
+	struct ast_node *l, *r;
+	struct sym_entry *e;
+	int lab;
+	char *func;
+	int rl, rr;
+	lab = get_new_label();
+	if(!node)return _ZERO;
+	if(node->type == NT_NUL) return _ZERO;
+	switch(node->id)
+	{
+	case '+': func = "addu";break;
+	case '-': func = "subu";break;
+	case '*': func = "mul";break;
+	case '/': func = "div";break;
+	case AND:
+		get_lr_child(node, &l, &r);
+		rl = gen_exp(l, _V1);
+		gen_br("beq", rl, _ZERO, use_label(lab));
+		gen_r("addu", ri, _ZERO, _ZERO);
+		gen_nop();
+		rl = gen_exp(r, _V1);
+		gen_br("beq", rl, _ZERO, use_label(lab));
+		gen_nop();
+		gen_i("xori", ri, ri, 1);
+		put_label(lab);
+		return ri;
+	case OR:
+		get_lr_child(node, &l, &r);
+		rl = gen_exp(l, _V1);
+		gen_br("bne", rl, _ZERO, use_label(lab));
+		gen_i("addiu", ri, _ZERO, 1);
+		gen_nop();
+		rl = gen_exp(r, _V1);
+		gen_br("bne", rl, _ZERO, use_label(lab));
+		gen_nop();
+		gen_i("xori", ri, ri, 1);
+		put_label(lab);
+		return ri;
+	case NOT:
+		get_lr_child(node, &l, &r);
+		rl = gen_exp(l, ri);
+		gen_br("bne", rl, _ZERO, use_label(lab));
+		gen_i("addu", ri, _ZERO, _ZERO);
+		gen_i("xori", ri, ri, 1);
+		put_label(lab);
+		return ri;
+	case 'i':
+	case 'b':
+		if(node->ival == 0)
+			return _ZERO;
+		gen_li(ri, node->ival);
+		return ri;
+	case 'f':
+		new_error(1,0,0,"不支持浮点数\n");
+		return 0;
+	case 'I':
+		e = node->pval;
+		rl = get_reg(e);
+		load(e);
+		return rl;
+	case 'A':
+		get_lr_child(node, &l, &r);
+		rr = gen_exp(r, _AT);
+		if(rr != _AT)
+			gen_r("addu", _AT, _ZERO, rr);
+		gen_i("sll", _AT, _AT, 2);
+		e = l->pval;
+		if(e->tab->uplink)
+		{
+			gen_r("addu", _AT, _AT, _S8);
+			gen_ls("lw",
+			       ri,
+			       -(e->svar.offset)*4, _AT);
+		}
+		else
+		{
+			gen_r("addu", _AT, _AT, _GP);
+			gen_ls("lw",
+			       ri,
+			       (e->svar.offset)*4, _AT);
+		}
+		gen_nop();
+		return ri;
+	case '=':
+		return gen_assign(node);
+	case 'F':
+		gen_call(node);
+		gen_r("addu", ri, _ZERO, _V0);
+		return ri;
+	}
+	get_lr_child(node, &l, &r);
+	if(r)
+	{
+		if(node->id == '*')
+		{
+			if(l->id == 'i' && l->ival == 2)
+			{
+				rr = gen_exp(r, _T9);
+				gen_i("sll", ri, rr, 1);
+				return ri;
+			} else if(r->id == 'i' && r->ival == 2)
+			{
+				rl = gen_exp(l, _V1);
+				gen_i("sll", ri, rl, 1);
+				return ri;
+			}
+		}
+		if(node->id == '/')
+		{
+			if(r->id == 'i' && r->ival == 2)
+			{
+				rl = gen_exp(l, _V1);
+				gen_i("sra", ri, rl, 1);
+				return ri;
+			}
+		}
+		rl = gen_exp(l, _V1);
+		rr = gen_exp(r, _T9);
+		switch(node->id)
+		{
+		case EQ_OP:
+			gen_br("bne", rl, rr, use_label(lab));
+			gen_r("addu", ri, _ZERO, _ZERO);
+			gen_i("addiu", ri, ri, 1);
+			put_label(lab);
+			break;
+		case NE_OP:
+			gen_br("beq", rl, rr, use_label(lab));
+			gen_r("addu", ri, _ZERO, _ZERO);
+			gen_i("addiu", ri, ri, 1);
+			put_label(lab);
+			break;
+		case '<':
+			gen_r("slt", ri, rl, rr);
+			break;
+		case GE_OP:
+			gen_r("slt", ri, rl, rr);
+			gen_i("xori", ri, ri, 1);
+			break;
+		case '>':
+			gen_r("slt", ri, rr, rl);
+			break;
+		case LE_OP:
+			gen_r("slt", ri, rr, rl);
+			gen_i("xori", ri, ri, 1);
+			break;
+		case '/':
+			gen_r(func, _ZERO, rl, rr);
+			fprintf(fp, "\tmflo $%s\n", reg_name[ri]);
+			reg[ri].dirty = 1;
+			break;
+		default:
+			gen_r(func, ri, rl, rr);
+			break;
+		}
+	}
+	else
+	{
+		rl = gen_exp(l, _V1);
+		if(func == "subu")
+			gen_r(func, ri, _ZERO, rl);
+	}
+	return ri;
 }
 
 static void gen_if(struct ast_node *node)
 {
-	struct ast_node *cond, *stmt, *l, *r;
-	int rl, rr;
-	struct sym_entry *e;
-	char label[16];
-	sprintf(label, "_L%d", lcount++);
-	
-	get_lr_child(node, &cond, &stmt);
+	int i;
+	struct ast_node *p;
+	int l_else, l_next;
+	int rl;
 
-	reg_wb_all();
-	
-	if(cond->id == '%')
+	l_else = get_new_label();
+	l_next = get_new_label();
+	i = 0;
+	list_for_each_entry(p, &node->chlds, sibling)
 	{
-		gen_i("andi", _V0, gen_exp(get_child(cond), _V0), 1);
-		gen_br("beq", _V0, _ZERO, label);
-	}
-	else
-	{
-		get_lr_child(cond, &l, &r);
-		rl = gen_exp(l, _V0);
-		rr = gen_exp(r, _V1);
-		switch(cond->id)
+		switch(i)
 		{
-		case EQ_OP:
-			gen_br("bne", rl, rr, label);
+		case 0: /* cond */
+			rl = gen_exp(p, _V0);
+			reg_wb_all();
+			gen_br("beq", rl, _ZERO, use_label(l_else));
+			gen_nop(); /* 分支延迟槽 */
 			break;
-		case NE_OP:
-			gen_br("beq", rl, rr, label);
+		case 1: /* then */
+			gen_stmt(p);
+			reg_wb_all();
+			gen_j("j", use_label(l_next));
+			gen_nop(); /* 分支延迟槽 */
 			break;
-		case '<':
-			gen_r("slt", _V0, rl, rr);
-			gen_br("beq", _V0, _ZERO, label);
+		case 2: /* else */
+			put_label(l_else);
+			gen_stmt(p);
+			reg_wb_all();
 			break;
-		case GE_OP:
-			gen_r("slt", _V0, rl, rr);
-			gen_br("bne", _V0, _ZERO, label);
-			break;
-		case '>':
-			gen_r("slt", _V0, rr, rl);
-			gen_br("beq", _V0, _ZERO, label);
-			break;
-		case LE_OP:
-			gen_r("slt", _V0, rr, rl);
-			gen_br("bne", _V0, _ZERO, label);
-			break;
-		default: return;
 		}
+		i++;
 	}
-	gen_nop(); //分支延迟槽
-	gen_stmt(stmt);
-	reg_wb_all();
-	fprintf(fp, "%s:\n", label);
+	if(i == 2)
+		put_label(l_else);
+	put_label(l_next);
 }
 
-static void gen_while(struct ast_node *node)
+static void gen_for(struct ast_node *node)
 {
-	struct ast_node *cond, *stmt, *l, *r;
-	int rl, rr;
+	int i;
+	struct ast_node *p;
+	int l_head, l_next, l_jmp, save_next, save_jmp;
+	int rl;
 	struct sym_entry *e;
-	char lbeg[16];
-	char lab[16];
-	sprintf(lbeg, "_L%d", lcount++);
-	sprintf(lab , "_L%d", lcount++);
-	
-	reg_wb_all();
-	fprintf(fp, "%s:\n", lbeg);
-	get_lr_child(node, &cond, &stmt);
-	if(cond->id == '%')
+
+	l_head = get_new_label();
+	l_next = get_new_label();
+	l_jmp = get_new_label();
+	save_jmp = while_jmp;
+	while_jmp = l_jmp;
+	save_next = while_next;
+	while_next = l_next;
+	i = 0;
+	list_for_each_entry(p, &node->chlds, sibling)
 	{
-		gen_i("andi", _V0, gen_exp(get_child(cond), _V0), 1);
-		gen_br("beq", _V0, _ZERO, lab);
-	}
-	else
-	{
-		
-		get_lr_child(cond, &l, &r);
-		rl = gen_exp(l, _V0);
-		rr = gen_exp(r, _V1);
-		switch(cond->id)
+		switch(i)
 		{
-		case EQ_OP:
-			gen_br("bne", rl, rr, lab);
+		case 0: /* init */
+			gen_stmt(p);
+			reg_wb_all();
 			break;
-		case NE_OP:
-			gen_br("beq", rl, rr, lab);
+		case 1: /* cond */
+			put_label(l_head);
+			rl = gen_exp(p, _V0);
+			reg_wb_all();
+			gen_br("beq", rl, _ZERO, use_label(l_next));
+			gen_nop(); /* 分支延迟槽 */
 			break;
-		case '<':
-			gen_r("slt", _V0, rl, rr);
-			gen_br("beq", _V0, _ZERO, lab);
+		case 2: /* stmt */
+			gen_stmt(p);
+			reg_wb_all();
 			break;
-		case GE_OP:
-			gen_r("slt", _V0, rl, rr);
-			gen_br("bne", _V0, _ZERO, lab);
+		case 3: /* inc */
+			put_label(l_jmp);
+			gen_stmt(p);			
+			reg_wb_all();
+			gen_j("j", use_label(l_head));
+			gen_nop(); /* 分支延迟槽 */
+			put_label(l_next);
 			break;
-		case '>':
-			gen_r("slt", _V0, rr, rl);
-			gen_br("beq", _V0, _ZERO, lab);
-			break;
-		case LE_OP:
-			gen_r("slt", _V0, rr, rl);
-			gen_br("bne", _V0, _ZERO, lab);
-			break;
-		default: return;
 		}
+		i++;
 	}
-	gen_nop();  //分支延迟槽
+	
+	while_next = save_next;
+	while_jmp = save_jmp;
+}
+
+static void gen_read(struct ast_node *list)
+{
+	struct ast_node *exp, *l, *r;
+	struct sym_entry *e;
+	int ri;
+	if(list)
+		list_for_each_entry(exp, &list->chlds, sibling)
+		{
+			gen_i("addiu", _V0, _ZERO, 5);
+			fprintf(fp, "\tsyscall\n");
+
+			if(exp->id == 'I')
+			{
+				e = exp->pval;
+				ri = get_reg(e);
+				gen_r("addu", ri, _ZERO, _V0);
+			}
+			else if(exp->id == 'A')
+			{
+				get_lr_child(exp, &l, &r);
+				ri = gen_exp(r, _AT);
+				if(ri != _AT)
+					gen_r("addu", _AT, _ZERO, ri);
+				gen_i("sll", _AT, _AT, 2);
+				e = l->pval;
+				if(e->tab->uplink)
+				{
+					gen_r("addu", _AT, _AT, _S8);
+					gen_ls("sw",
+					       _V0,
+					       -(e->svar.offset)*4, _AT);
+				}
+				else
+				{
+					gen_r("addu", _AT, _AT, _GP);
+					gen_ls("sw",
+					       _V0,
+					       (e->svar.offset)*4, _AT);
+				}
+			}
+		}
 	reg_wb_all();
-	gen_stmt(stmt);
-	reg_wb_all();
-	gen_j("j", lbeg);
-	gen_nop(); //分支延迟槽
-	fprintf(fp, "%s:\n", lab);
 }
 
 static void gen_stmt(struct ast_node *node)
 {
+	int rl;
 	switch(node->type)
 	{
-	case NT_CALL:	
-		gen_call(node);
-		break;
 	case NT_EXP:
 		gen_exp(node, _V0);
-		break;
-	case NT_ASSIGN:
-		gen_assign(node);
 		break;
 	case NT_IF:
 		gen_if(node);
 		break;
-	case NT_WHILE:
-		gen_while(node);
+	case NT_FOR:
+		gen_for(node);
+		break;
+	case NT_NUL:
 		break;
 	case NT_BLOCK:
 		gen_block(node);
+		break;
+	case NT_BREAK:
+		reg_wb_all();
+		gen_j("j", use_label(while_next));
+		gen_nop();
+		break;
+	case NT_CONTINUE:
+		reg_wb_all();
+		gen_j("j", use_label(while_jmp));
+		gen_nop();
+		break;
+	case NT_RETURN:
+		if(node->id)
+		{
+			rl = gen_exp(get_child(node), _V0);
+			if(rl != _V0)
+				gen_r("addu", _V0, _ZERO, rl);
+		}
+		reg_wb_all();
+		gen_j("j", use_label(func_ret));
+		gen_r("addu", _V0, _ZERO, rl);
+		break;
+	case NT_WRITEE:
+		rl = gen_exp(get_child(node), _A0);
+		if(rl != _A0)
+			gen_r("addu", _A0, _ZERO, rl);
+		gen_i("addiu", _V0, _ZERO, 1);
+		fprintf(fp, "\tsyscall\n");
+		break;
+	case NT_READ:
+		gen_read(get_child(node));
+		break;
+	case NT_WRITES:
+		gen_ls("lw", _A0, 4*(node->id+str_table), _GP);
+		gen_i("addiu", _V0, _ZERO, 4);
+		fprintf(fp, "\tsyscall\n");
 		break;
 	default:
 		printf("unkwon stmt\n");
@@ -554,31 +775,70 @@ static void gen_block(struct ast_node *block)
 	}
 }
 
-
-static int gen_code(struct sym_tab *ptab)
+static void gen_initexp(struct sym_entry *e)
 {
-	int offset;
+	struct ast_node *node, *p;
+	int i;
+	int r, base;
+	int sign;
+	node = e->svar.iexp;
+	sign = e->tab->uplink ? -1 : 1;
+	if(e->tab->uplink)
+		base = _S8;
+	else
+		base = _GP;
+	if(node->type == NT_EXP)
+	{
+		r = gen_exp(node, _V0);
+		gen_ls("sw", r, sign*e->svar.offset*4, base);
+	}
+	else
+	{
+		i = 0;
+		list_for_each_entry(p, &node->chlds, sibling)
+		{
+			r = gen_exp(p, _V0);
+			gen_ls("sw", r, (i+sign*e->svar.offset)*4, base);
+			i++;
+		}
+	}
+}
+
+static void gen_code(struct sym_tab *ptab)
+{
+	int i;
+	int offset, parm_offset, len;
 	int cx_func;
-	int cx1 = 0;
 	struct sym_entry *entry;
 	struct sym_entry *e;
 	offset = 0;
+	parm_offset = -2;
 	
 	fprintf(fp, "\t.data\n\t.align 2\n");
 	list_for_each_entry(entry, &ptab->order, order)
-		if(entry->type == SYM_VAR)
+		if(type_is_var(entry->type))
 		{
-			entry->svar.offset = offset++;
-			fprintf(fp, "%s:\n\t.word\t%d\n",
-				entry->name,
-				0);
+			if(type_is_float(entry->type))
+				new_error(1,0,0,"暂不支持浮点数\n");
+			len = type_len(entry->type);
+			entry->svar.offset = offset;
+			offset += len;
+			fprintf(fp, "%s:\n", entry->name);
+			fprintf(fp, "\t.space\t%d\n", len*4);
 		}
-	
+	str_table = offset;
+	fprintf(fp,"\nstrs:\n");
+	for(i = 0; i < strs_count; i++)
+		fprintf(fp, "\t.word\t_S%d\n", i);
+	for(i = 0; i < strs_count; i++)
+		fprintf(fp, "_S%d:\t.asciiz \"%s\"\n", i, strs[i]);
+	fprintf(fp, "\n");
 	fprintf(fp, "\t.text\n\t.align 2\n\t.globl main\n");
 	list_for_each_entry(entry, &ptab->order, order)
-		if(entry->type == SYM_FUNC)
+		if(type_is_func(entry->type))
 		{
 			cx_func = cx;
+			func_ret = get_new_label();
 			printf("function %s is at %d\n",
 			       entry->name,
 			       cx_func);
@@ -586,26 +846,52 @@ static int gen_code(struct sym_tab *ptab)
 			entry->sfunc.addr = cx_func;
 			fprintf(fp, "%s:\n", entry->name);
 			offset = 0;
+			parm_offset = -2;
 			list_for_each_entry(
 				e,
 				&entry->sfunc.sym->order,
 				order)
-				if(e->type == SYM_VAR)
-					e->svar.offset = offset++;
+				if(type_is_var(e->type))
+				{
+					len = type_len(e->type);
+					if(e->svar.is_param)
+					{
+						e->svar.offset = parm_offset;
+						parm_offset -= len;
+					}
+					else
+					{
+						offset += len;
+						e->svar.offset = offset;
+					}
+				}
 			gen_ls("sw", _RA, -4, _SP);
 			gen_ls("sw", _S8, -8, _SP);
 			gen_i("addiu", _S8, _SP, -8);
 			gen_i("addiu", _SP, _SP, (-offset-2)*4);
 			if(strcmp(entry->name, "main") == 0)
+			{
 				gen_i2("lui", _GP, 0x1000);
+				list_for_each_entry(e, &ptab->order, order)
+					if(type_is_var(e->type))
+						if(e->svar.iexp)
+							gen_initexp(e);
+			}
+			list_for_each_entry(
+				e,
+				&entry->sfunc.sym->order,
+				order)
+				if(type_is_var(e->type))
+					if(e->svar.iexp)
+						gen_initexp(e);
 			gen_block(entry->sfunc.stmts);
 			reg_wb_all();
+			put_label(func_ret);
 			gen_ls("lw", _RA, 4, _S8);
 			gen_ls("lw", _S8, 0, _S8);  //加载延迟槽
 			gen_jr("jr", _RA);
 			gen_i("addiu", _SP, _SP, (offset+2)*4); //分支延迟槽
 		}
-	return cx1;
 }
 
 
@@ -621,7 +907,6 @@ static void gen_code_all(struct sym_tab *ptab, char *name)
 	}
 
 	cx = 0;
-	lcount = 0;
 	reg_init();
 	gen_code(ptab);
 	fclose(fp);

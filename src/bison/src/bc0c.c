@@ -13,6 +13,7 @@ struct gen_info *gi[] = {
 	&gen_eir,
 	&gen_c,
 	&check,
+	&gen_spim,
 	NULL,
 };
 

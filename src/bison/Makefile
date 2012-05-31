@@ -1,9 +1,9 @@
-CC       = gcc -Wall -O3 -c -Iinclude -I../../include
+CC       = gcc -g -c -Iinclude -I../../include
 LD	 = gcc
 LEX      = flex -i -I 
 YACC     = bison -d -y -r all --debug
 
-OBJ	 = src/c0.tab.o src/c0.lex.o src/sym_tab.o src/gen_c.o src/check.o src/gen_eir.o ../file.o src/bc0c.o src/type.o
+OBJ	 = src/c0.tab.o src/c0.lex.o src/sym_tab.o src/gen_c.o src/check.o src/gen_eir.o src/gen_spim.o src/bc0c.o src/type.o
 
 src/%.o : src/%.c
 	$(CC) -o $@ $<
