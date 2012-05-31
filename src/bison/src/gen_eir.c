@@ -335,7 +335,10 @@ static void gen_exp(struct ast_node *node, int need_reload)
 		if(func == minuss)
 			func = neg;
 		else if(func == add)
+		{
+			gen_exp(l, need_reload);
 			return;
+		}
 		gen_exp(l, need_reload);
 		if(need_reload)
 			geno(opr, 0, func);
