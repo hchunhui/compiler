@@ -230,7 +230,7 @@ static void reg_wb(struct reg_struct *r)
 {
 	if(r->sym)
 	{
-		if(type_is_var(r->sym->type) && r->dirty)
+		if(r->sym->kind == SYM_VAR && r->dirty)
 		{
 			if(r->sym->tab->uplink)
 				gen_ls("sw",
@@ -261,7 +261,7 @@ static void reg_wb_all()
 static void load(struct sym_entry *var)
 {
 	struct reg_struct *r;
-	if(!type_is_var(var->type) || !var->gen_data)
+	if(var->kind != SYM_VAR || !var->gen_data)
 	{
 		fprintf(stderr, "load\n");
 		exit(1);
@@ -816,7 +816,7 @@ static void gen_code(struct sym_tab *ptab)
 	
 	fprintf(fp, "\t.data\n\t.align 2\n");
 	list_for_each_entry(entry, &ptab->order, order)
-		if(type_is_var(entry->type))
+		if(entry->kind == SYM_VAR)
 		{
 			if(type_is_float(entry->type))
 				new_error(1,0,0,"暂不支持浮点数\n");
@@ -835,7 +835,7 @@ static void gen_code(struct sym_tab *ptab)
 	fprintf(fp, "\n");
 	fprintf(fp, "\t.text\n\t.align 2\n\t.globl main\n");
 	list_for_each_entry(entry, &ptab->order, order)
-		if(type_is_func(entry->type))
+		if(entry->kind == SYM_FUNC)
 		{
 			cx_func = cx;
 			func_ret = get_new_label();
@@ -851,7 +851,7 @@ static void gen_code(struct sym_tab *ptab)
 				e,
 				&entry->sfunc.sym->order,
 				order)
-				if(type_is_var(e->type))
+				if(e->kind == SYM_VAR)
 				{
 					len = type_len(e->type);
 					if(e->svar.is_param)
@@ -873,7 +873,7 @@ static void gen_code(struct sym_tab *ptab)
 			{
 				gen_i2("lui", _GP, 0x1000);
 				list_for_each_entry(e, &ptab->order, order)
-					if(type_is_var(e->type))
+					if(e->kind == SYM_VAR)
 						if(e->svar.iexp)
 							gen_initexp(e);
 			}
@@ -881,7 +881,7 @@ static void gen_code(struct sym_tab *ptab)
 				e,
 				&entry->sfunc.sym->order,
 				order)
-				if(type_is_var(e->type))
+				if(e->kind == SYM_VAR)
 					if(e->svar.iexp)
 						gen_initexp(e);
 			gen_block(entry->sfunc.stmts);

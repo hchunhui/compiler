@@ -3,6 +3,7 @@
 #include "list.h"
 #include "type.h"
 #include "error.h"
+#include "sym_tab.h"
 
 #define HASHSIZE 256
 struct list_head type_entry[HASHSIZE];
@@ -16,12 +17,12 @@ struct list_head type_entry[HASHSIZE];
 		}						\
 	} while(0)
 
-static unsigned long typehash(int type, int n, struct type *t1, struct type *t2)
+static unsigned long typehash(int type, int n, void *t1, struct type *t2)
 {
-	return type ^ n ^ (((unsigned long)t1)>>3) ^ (((unsigned long)t2)>>3);
+	return type ^ n ^ (((unsigned long)t1)>>3);
 }
 
-static struct type *find_type(int type, int n, struct type *t1, struct type *t2)
+static struct type *find_type(int type, int n, void *t1, struct type *t2)
 {
 	unsigned int hash, idx;
 	struct type *e;
@@ -38,17 +39,13 @@ static struct type *find_type(int type, int n, struct type *t1, struct type *t2)
 	return NULL;
 }
 
-struct type *get_type(int type, int n, struct type *t1, struct type *t2)
+static struct type *new_type(int type, int n, void *t1, struct type *t2)
 {
 	unsigned int hash, idx;
 	struct type *e;
-	e = find_type(type, n, t1, t2);
-	if(e)
-		return e;
 	hash = typehash(type, n, t1, t2);
 	xmalloc(e, sizeof(struct type));
 	idx = hash%HASHSIZE;
-
 	e->type = type;
 	e->n = n;
 	e->t1 = t1;
@@ -57,45 +54,62 @@ struct type *get_type(int type, int n, struct type *t1, struct type *t2)
 	return e;
 }
 
+struct type *get_type(int type, int n, void *t1, struct type *t2)
+{
+	struct type *e;
+	e = find_type(type, n, t1, t2);
+	if(e)
+		return e;
+	return new_type(type, n, t1, t2);
+}
+
 struct type *array_type(struct type *t, int n)
 {
-	struct type *nt;
-	nt = t;
-	if(nt->type != TYPE_ARRAY &&
-	   nt->type != TYPE_FUNC)
-		nt = get_type(TYPE_ARRAY, n, NULL, nt);
-	else
-		nt = get_type(nt->type,
-			      nt->n,
-			      nt->t1,
-			      get_type(TYPE_ARRAY, n, NULL, nt->t2));
-	return nt;
+	struct type *p;
+	if(t->type != TYPE_ARRAY &&
+	   t->type != TYPE_FUNC)
+		return new_type(TYPE_ARRAY, n, NULL, t);
+	p = t;
+	while(p->t2->type == TYPE_ARRAY ||
+	      p->t2->type == TYPE_FUNC)
+		p = p->t2;
+	p->t2 = new_type(TYPE_ARRAY, n, NULL, p->t2);
+	return t;
 }
 
 struct type *func_type(struct type *t, struct list_head *type_list)
 {
 	struct type_list *tle, *tmp;
-	struct type *nt;
+	struct type *p, *nt;
 	if(t->type != TYPE_ARRAY &&
 	   t->type != TYPE_FUNC)
-		nt = t;
-	else
-		nt = t->t2;
-		
-	list_for_each_entry_safe(tle, tmp, type_list, list)
 	{
-		nt = get_type(TYPE_FUNC, 0, tle->type, nt);
-		/*list_del(&tle->list);*/
-		/*free(tle);*/
+		p = t;
+		nt = p;
 	}
-	/*free(type_list);*/
+	else
+	{
+		p = t;
+		while(p->t2->type == TYPE_ARRAY ||
+		      p->t2->type == TYPE_FUNC)
+			p = p->t2;
+		nt = p->t2;
+	}
+
+	if(type_list == NULL)
+		nt = new_type(TYPE_FUNC, 0,
+			      get_type(TYPE_VOID, 0, NULL, NULL),
+			      nt);
+	else
+		list_for_each_entry_safe(tle, tmp, type_list, list)
+			nt = new_type(TYPE_FUNC, 0, tle->type, nt);
 	
 	if(t->type == TYPE_ARRAY ||
 	   t->type == TYPE_FUNC)
-		nt = get_type(t->type,
-			      t->n,
-			      t->t1,
-			      nt);
+	{
+		p->t2 = nt;
+		return t;
+	}
 	return nt;
 }
 
@@ -131,8 +145,8 @@ void dump_type(struct type *t, FILE *fp)
 		fprintf(fp,"label");
 		break;
 	case TYPE_TYPE:
-		fprintf(fp,"type: ");
-		dump_type(t->t2, fp);
+		fprintf(fp, "%s", t->e->name);
+		//dump_type(t->t2, fp);
 		break;
 	default:
 		fprintf(fp,"\n错误：%d\n", t->type);

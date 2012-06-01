@@ -25,6 +25,11 @@ struct sym_entry {
 	struct list_head order;
 	struct sym_tab *tab;
 	char *name;
+	enum {
+		SYM_VAR,
+		SYM_FUNC,
+		SYM_TYPE,
+	} kind;
 	struct type *type;
 	void *gen_data;
 	union {
@@ -42,6 +47,10 @@ struct sym_tab {
 
 struct sym_entry *
 symtab_enter(struct sym_tab *ptab, char *name, struct type *type);
+struct sym_entry *
+symtab_enter_t(struct sym_tab *ptab, char *name, struct type *type);
+struct sym_entry *
+symtab_enter_type(struct sym_tab *ptab, char *name, struct type *type);
 
 struct sym_entry *symtab_lookup(struct sym_tab *ptab, char *name, int follow);
 struct sym_tab *symtab_new(struct sym_tab *uplink);

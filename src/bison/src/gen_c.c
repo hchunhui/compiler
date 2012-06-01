@@ -143,7 +143,6 @@ static void gen_for(struct ast_node *node)
 {
 	int i;
 	struct ast_node *p;
-	struct ast_node *exp, *stmt;
 	fprintf(fp, "for (");
 	i = 0;
 	list_for_each_entry(p, &node->chlds, sibling)

@@ -16,7 +16,7 @@
 /* forward decl */
 static struct type *gen_exp(struct ast_node *node);
 static void gen_if(struct ast_node *node);
-static void gen_while(struct ast_node *node);
+static void gen_for(struct ast_node *node);
 static void gen_stmt(struct ast_node *node);
 static void gen_block(struct ast_node *block);
 static void gen_code(struct sym_tab *ptab);
@@ -37,19 +37,19 @@ static struct type
 			    "类型错误\n");
 		return get_type(TYPE_VOID, 0, NULL, NULL);
 	}
-	if(lt == rt)
+	if(type_is_equal_bystru(lt, rt))
 		return lt;
-	if(lt->type == TYPE_INT && rt->type == TYPE_FLOAT)
+	if(type_is_int(lt) && type_is_float(rt))
 		return rt;
-	if(lt->type == TYPE_FLOAT && rt->type == TYPE_INT)
+	if(type_is_float(lt) && type_is_int(rt))
 		return lt;
-	if(lt->type == TYPE_INT && rt->type == TYPE_BOOL)
+	if(type_is_int(lt) && type_is_bool(rt))
 		return lt;
-	if(lt->type == TYPE_BOOL && rt->type == TYPE_INT)
+	if(type_is_bool(lt) && type_is_int(rt))
 		return rt;
-	if(lt->type == TYPE_FLOAT && rt->type == TYPE_BOOL)
+	if(type_is_float(lt) && type_is_bool(rt))
 		return lt;
-	if(lt->type == TYPE_BOOL && rt->type == TYPE_FLOAT)
+	if(type_is_bool(lt) && type_is_float(rt))
 		return rt;
 	new_error_p(0,
 		  node->first_line,
@@ -82,7 +82,9 @@ static struct type *gen_array(struct ast_node *node)
 					    p->first_column,
 					    "数组访问下标不是整数\n");
 			if(type_is_array(lt))
-				lt = lt->t2;
+				do {
+					lt = lt->t2;
+				} while(lt->type == TYPE_TYPE);
 			else
 				new_error_p(0,
 					  node->first_line,
@@ -336,7 +338,7 @@ static void gen_code(struct sym_tab *ptab)
 	struct type *ret_type;
 	struct sym_entry *entry;
 	list_for_each_entry(entry, &ptab->order, order)
-		if(type_is_func(entry->type))
+		if(entry->kind == SYM_FUNC)
 		{
 			if(!entry->sfunc.defined)
 				continue;
@@ -348,7 +350,7 @@ static void gen_code(struct sym_tab *ptab)
 			gen_code(entry->sfunc.sym);
 			gen_block(entry->sfunc.stmts);
 		}
-		else
+		else if(entry->kind == SYM_VAR)
 		{
 			if(type_is_void(entry->type))
 				new_error_p(0,

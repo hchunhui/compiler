@@ -65,9 +65,9 @@ H	   [a-fA-F0-9]
 {L}({L}|{D})*		{
 	struct sym_entry *e;
 	e = symtab_lookup(symtab, yytext, 1);
-	if(e && type_is_type(e->type))
+	if(e && e->kind == SYM_TYPE)
 	{
-		yylval.tptr = e->type->t2;
+		yylval.tptr = e->type;
 		return(ATYPE);
 	}
 	yylval.name = strdup(yytext);

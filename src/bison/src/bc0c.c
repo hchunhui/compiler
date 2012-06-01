@@ -90,18 +90,10 @@ int main(int argc, char **argv)
 	
 	symtab = symtab_new(NULL);
 	type_init();
-	symtab_enter(symtab, "int",
-		     get_type(TYPE_TYPE, 0, NULL,
-			      get_type(TYPE_INT, 0, NULL, NULL)));
-	symtab_enter(symtab, "float",
-		     get_type(TYPE_TYPE, 0, NULL,
-			      get_type(TYPE_FLOAT, 0, NULL, NULL)));
-	symtab_enter(symtab, "bool",
-		     get_type(TYPE_TYPE, 0, NULL,
-			      get_type(TYPE_BOOL, 0, NULL, NULL)));
-	symtab_enter(symtab, "void",
-		     get_type(TYPE_TYPE, 0, NULL,
-			      get_type(TYPE_VOID, 0, NULL, NULL)));
+	symtab_enter_t(symtab, "int", get_type(TYPE_INT, 0, NULL, NULL));
+	symtab_enter_t(symtab, "float", get_type(TYPE_FLOAT, 0, NULL, NULL));
+	symtab_enter_t(symtab, "bool", get_type(TYPE_BOOL, 0, NULL, NULL));
+	symtab_enter_t(symtab, "void", get_type(TYPE_VOID, 0, NULL, NULL));
 	yyin = infile;
 	fprintf(stderr, "syntax check\n");
 	if(parse())

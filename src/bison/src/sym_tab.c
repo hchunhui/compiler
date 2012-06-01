@@ -2,9 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "sym_tab.h"
-#include "ast_node.h"
 #include "error.h"
-
+#undef xmalloc
 #define xmalloc(x, len)					\
 	do {						\
 	x = malloc(len);				\
@@ -12,6 +11,7 @@
 		fprintf(stderr, "malloc fail!\n"); \
 		exit(1); \
 	} \
+	memset(x, 0, len); \
 	} while(0)
 
 /* JS Hash Function */
@@ -56,6 +56,20 @@ static struct sym_entry *new_entry(struct sym_tab *ptab, char *name)
 }
 
 struct sym_entry *
+symtab_enter_t(struct sym_tab *ptab, char *name, struct type *type)
+{
+	struct sym_entry *entry;
+	if(find_entry(ptab, name))
+		new_error(1,
+			  0,
+			  0, "符号重名\n");
+	entry = new_entry(ptab, name);
+	entry->type = type;
+	entry->kind = SYM_TYPE;
+	return entry;
+}
+
+struct sym_entry *
 symtab_enter(struct sym_tab *ptab, char *name, struct type *type)
 {
 	struct sym_entry *entry;
@@ -65,20 +79,24 @@ symtab_enter(struct sym_tab *ptab, char *name, struct type *type)
 			  0, "符号重名\n");
 	entry = new_entry(ptab, name);
 	entry->type = type;
-	switch(type->type)
-	{
-	case TYPE_FUNC:
-		entry->sfunc.stmts = NULL;
-		entry->sfunc.sym = NULL;
-		entry->sfunc.addr = 0;
-		entry->sfunc.defined = 0;
-		break;
-	case TYPE_INT:
-	case TYPE_FLOAT:
-	case TYPE_BOOL:
-		entry->svar.is_param = 0;
-		break;
-	}
+	if(type_is_func(type))
+		entry->kind = SYM_FUNC;
+	else
+		entry->kind = SYM_VAR;;
+	return entry;
+}
+
+struct sym_entry *
+symtab_enter_type(struct sym_tab *ptab, char *name, struct type *type)
+{
+	struct sym_entry *entry;
+	if(find_entry(ptab, name))
+		new_error(1,
+			  0,
+			  0, "符号重名\n");
+	entry = new_entry(ptab, name);
+	entry->kind = SYM_TYPE;
+	entry->type = get_type(TYPE_TYPE, 0, entry, type);
 	return entry;
 }
 

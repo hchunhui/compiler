@@ -113,7 +113,7 @@ static struct sym_entry
 /*%define parse.lac full*/
 %%
 
-program : decl;
+program : decl;	
 
 decl
 	: decl xdecl
@@ -125,8 +125,7 @@ decl
 	| decl TYPEDEF type decl00 ';'
 	{
 		struct sym_entry *tle, *tmp;
-		symtab_enter(symtab, $4.name,
-			     get_type(TYPE_TYPE, 0, NULL, $4.type));
+		symtab_enter_type(symtab, $4.name, $4.type);
 		curr_type = $3;
 		if($4.args)
 		{
@@ -187,9 +186,7 @@ decl00
 		$$.args = $3;
 	}
 	| decl00 '(' ')' {
-		$$.type = get_type(TYPE_FUNC, 0,
-				   get_type(TYPE_VOID, 0, NULL, NULL),
-				   $1.type);
+		$$.type = func_type($1.type, NULL);
 		$$.name = $1.name;
 		$$.args = NULL;
 	}
@@ -204,9 +201,7 @@ arg
 	| arg '(' arg_list ')' { $$.type = func_type($1.type, $3); $$.name = $1.name; }
 	| arg '(' ')'
 	{
-		$$.type = get_type(TYPE_FUNC, 0,
-			      get_type(TYPE_VOID, 0, NULL, NULL),
-			      $1.type);
+		$$.type = func_type($1.type, NULL);
 		$$.name = $1.name;
 	}
 	;
@@ -456,12 +451,12 @@ static void decl_sym(int row,
 	e = symtab_lookup(symtab, name, 0);
 	if(e)
 	{
-		if(e->type != type)
+		if(!type_is_equal_byname(e->type, type))
 			new_error_p(0,
 				    row,
 				    col,
 				    "符号 %s 类型与之前声明不匹配\n", name);
-		if(!type_is_func(e->type))
+		if(e->kind != SYM_FUNC)
 			new_error_p(0,
 				    row,
 				    col,
@@ -474,14 +469,14 @@ static void decl_sym(int row,
 	new_eol();
 	free(name);
 
-	if(iexp && type_is_func(e->type))
+	if(iexp && e->kind == SYM_FUNC)
 	{
 		new_error_p(0,
 			    row,
 			    col,
 			    "不能对函数初始化\n", name);
 	}
-	if(iexp && type_is_var(e->type))
+	if(iexp && e->kind == SYM_VAR)
 	{
 		e->svar.iexp = iexp;
 		if(type_is_array(e->type) && iexp->type != NT_EXPLIST ||
@@ -517,32 +512,35 @@ static struct sym_entry
 	e = symtab_lookup(symtab, name, 0);
 	if(e)
 	{
-		if(!type_is_func(e->type))
+		if(e->kind != SYM_FUNC)
 			new_error_p(0,
 				    row,
 				    col,
 				    "符号 %s 不是函数\n", name);
-		if(e->type != type)
-			new_error_p(0,
-				    row,
-				    col,
-				    "符号 %s 类型不匹配\n", name);
-		if(e->sfunc.defined)
-			new_error_p(0,
-				    row,
-				    col,
-				    "符号 %s 重定义\n", name);
+		else
+		{
+			if(!type_is_equal_byname(e->type, type))
+				new_error_p(0,
+					    row,
+					    col,
+					    "符号 %s 类型不匹配\n", name);
+			if(e->sfunc.defined)
+				new_error_p(0,
+					    row,
+					    col,
+					    "符号 %s 重定义\n", name);
+		}
 	}
 	else
 		e = symtab_enter(symtab, name, type);
-	if(iexp && type_is_func(e->type))
+	if(iexp && e->kind == SYM_FUNC)
 	{
 		new_error_p(0,
 			    row,
 			    col,
 			    "不能对函数初始化\n", name);
 	}
-	if(type_is_func(e->type))
+	if(e->kind == SYM_FUNC)
 		e->sfunc.defined = 1;
 	new_remark("sym %s, type ", name);
 	dump_type(type, stderr);

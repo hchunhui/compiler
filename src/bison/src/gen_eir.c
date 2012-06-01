@@ -200,7 +200,9 @@ static void gen_array_num(struct ast_node *node)
 		{
 			gen_exp(p, 1);
 			lim *= tlt->n;
+			do {
 			tlt = tlt->t2;
+			}while(tlt->type == TYPE_TYPE);
 		}
 		else
 		{
@@ -209,7 +211,9 @@ static void gen_array_num(struct ast_node *node)
 			gen_exp(p, 1);
 			geno(opr, 0, add);
 			lim *= tlt->n;
+			do {
 			tlt = tlt->t2;
+			}while(tlt->type == TYPE_TYPE);
 		}
 		i++;
 	}
@@ -565,7 +569,7 @@ static int gen_code(struct sym_tab *ptab)
 	offset = 4;
 	parm_offset = 0;
 	list_for_each_entry(entry, &ptab->order, order)
-		if(type_is_var(entry->type))
+		if(entry->kind == SYM_VAR)
 		{
 			len = type_len(entry->type);
 			if(entry->svar.is_param)
@@ -586,7 +590,7 @@ static int gen_code(struct sym_tab *ptab)
 	geni(Int, 0, offset);
 
 	list_for_each_entry(entry, &ptab->order, order)
-		if(type_is_var(entry->type))
+		if(entry->kind == SYM_VAR)
 			if(entry->svar.iexp)
 				gen_initexp(entry);
 	
@@ -598,7 +602,7 @@ static int gen_code(struct sym_tab *ptab)
 	}
 	
 	list_for_each_entry(entry, &ptab->order, order)
-		if(type_is_func(entry->type))
+		if(entry->kind == SYM_FUNC)
 		{
 			if(!entry->sfunc.defined)
 				continue;
