@@ -868,10 +868,18 @@ static void gen_code(struct sym_tab *ptab)
 						e->svar.offset = offset;
 					}
 				}
-			gen_ls("sw", _RA, -4, _SP);
-			gen_ls("sw", _S8, -8, _SP);
-			gen_i("addiu", _S8, _SP, -8);
-			gen_i("addiu", _SP, _SP, (-offset-2)*4);
+			if(entry->attr&1) /* 叶子函数 */
+			{
+				gen_r("addu", _S7, _ZERO, _S8);
+				gen_i("addiu", _S8, _SP, -8);
+			}
+			else
+			{
+				gen_ls("sw", _RA, -4, _SP);
+				gen_ls("sw", _S8, -8, _SP);
+				gen_i("addiu", _S8, _SP, -8);
+				gen_i("addiu", _SP, _SP, (-offset-2)*4);
+			}
 			if(strcmp(entry->name, "main") == 0)
 			{
 				gen_i2("lui", _GP, 0x1000);
@@ -890,10 +898,18 @@ static void gen_code(struct sym_tab *ptab)
 			gen_block(entry->sfunc.stmts);
 			reg_wb_all();
 			put_label(func_ret);
-			gen_ls("lw", _RA, 4, _S8);
-			gen_ls("lw", _S8, 0, _S8);  //加载延迟槽
-			gen_jr("jr", _RA);
-			gen_i("addiu", _SP, _SP, (offset+2)*4); //分支延迟槽
+			if(entry->attr&1) /* 叶子函数 */
+			{
+				gen_jr("jr", _RA);
+				gen_r("addu", _S8, _ZERO, _S7);
+			}
+			else
+			{
+				gen_ls("lw", _RA, 4, _S8);
+				gen_ls("lw", _S8, 0, _S8);  //加载延迟槽
+				gen_jr("jr", _RA);
+				gen_i("addiu", _SP, _SP, (offset+2)*4); //分支延迟槽
+			}
 		}
 }
 

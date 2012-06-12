@@ -49,6 +49,7 @@ static struct sym_entry *new_entry(struct sym_tab *ptab, char *name)
 	idx = hash%HASHSIZE;
 	entry->name = strdup(name);
 	entry->tab = ptab;
+	entry->attr = 0;
 	entry->gen_data = NULL;
 	list_add_tail(&entry->list, &ptab->entry[idx]);
 	list_add_tail(&entry->order, &ptab->order);

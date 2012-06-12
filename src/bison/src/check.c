@@ -23,6 +23,7 @@ static void gen_code(struct sym_tab *ptab);
 
 static int in_while;
 static struct type *func_ret;
+static int call_count;
 #define new_error_p(...) do { new_error(__VA_ARGS__); err++; } while(0)
 static int err;
 
@@ -164,6 +165,7 @@ static struct type *gen_exp(struct ast_node *node)
 				  "赋值非法\n");
 		return lt;
 	case 'F':
+		call_count++;
 		lt = gen_lval(l);
 		if(!type_is_func(lt))
 			new_error_p(0,
@@ -347,8 +349,10 @@ static void gen_code(struct sym_tab *ptab)
 				ret_type = ret_type->t2;
 			entry->sfunc.ret_type = ret_type;
 			func_ret = ret_type;
+			call_count = 0;
 			gen_code(entry->sfunc.sym);
 			gen_block(entry->sfunc.stmts);
+			entry->attr = !(call_count);
 		}
 		else if(entry->kind == SYM_VAR)
 		{

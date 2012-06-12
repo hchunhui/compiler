@@ -30,6 +30,7 @@ struct sym_entry {
 		SYM_FUNC,
 		SYM_TYPE,
 	} kind;
+	unsigned int attr;
 	struct type *type;
 	void *gen_data;
 	union {
