@@ -524,16 +524,12 @@ static int gen_exp(struct ast_node *node, int ri)
 		switch(node->id)
 		{
 		case EQ_OP:
-			gen_br("bne", rl, rr, use_label(lab));
-			gen_r("addu", ri, _ZERO, _ZERO);
-			gen_i("addiu", ri, ri, 1);
-			put_label(lab);
+			gen_r("xor", ri, rl, rr);
+			gen_i("sltiu", ri, ri, 1);
 			break;
 		case NE_OP:
-			gen_br("beq", rl, rr, use_label(lab));
-			gen_r("addu", ri, _ZERO, _ZERO);
-			gen_i("addiu", ri, ri, 1);
-			put_label(lab);
+			gen_r("xor", ri, rl, rr);
+			gen_r("sltu", ri, _ZERO, ri);
 			break;
 		case '<':
 			gen_r("slt", ri, rl, rr);
