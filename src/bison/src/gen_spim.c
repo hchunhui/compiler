@@ -424,7 +424,6 @@ static int gen_exp(struct ast_node *node, int ri)
 		rl = gen_exp(l, _V1);
 		gen_br("beq", rl, _ZERO, use_label(lab));
 		gen_r("addu", ri, _ZERO, _ZERO);
-		gen_nop();
 		rl = gen_exp(r, _V1);
 		gen_br("beq", rl, _ZERO, use_label(lab));
 		gen_nop();
@@ -436,7 +435,6 @@ static int gen_exp(struct ast_node *node, int ri)
 		rl = gen_exp(l, _V1);
 		gen_br("bne", rl, _ZERO, use_label(lab));
 		gen_i("addiu", ri, _ZERO, 1);
-		gen_nop();
 		rl = gen_exp(r, _V1);
 		gen_br("bne", rl, _ZERO, use_label(lab));
 		gen_nop();
