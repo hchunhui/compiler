@@ -746,7 +746,7 @@ static void gen_stmt(struct ast_node *node)
 				gen_r("addu", _V0, _ZERO, rl);
 		}
 		reg_wb_all();
-		gen_br("beq", _ZERO, _ZERO, use_label(func_ret);
+		gen_br("beq", _ZERO, _ZERO, use_label(func_ret));
 		gen_r("addu", _V0, _ZERO, rl);
 		break;
 	case NT_WRITEE:
