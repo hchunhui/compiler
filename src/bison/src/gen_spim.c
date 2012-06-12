@@ -552,8 +552,13 @@ static int gen_exp(struct ast_node *node, int ri)
 			gen_i("xori", ri, ri, 1);
 			break;
 		case '/':
-			gen_r(func, _ZERO, rl, rr);
+			gen_r("div", _ZERO, rl, rr);
 			fprintf(fp, "\tmflo $%s\n", reg_name[ri]);
+			reg[ri].dirty = 1;
+			break;
+		case '%':
+			gen_r("div", _ZERO, rl, rr);
+			fprintf(fp, "\tmfhi $%s\n", reg_name[ri]);
 			reg[ri].dirty = 1;
 			break;
 		default:
@@ -565,7 +570,7 @@ static int gen_exp(struct ast_node *node, int ri)
 	{
 		rl = gen_exp(l, _V1);
 		if(func == "subu")
-			gen_r(func, ri, _ZERO, rl);
+			gen_r("subu", ri, _ZERO, rl);
 	}
 	return ri;
 }
@@ -593,7 +598,7 @@ static void gen_if(struct ast_node *node)
 		case 1: /* then */
 			gen_stmt(p);
 			reg_wb_all();
-			gen_j("j", use_label(l_next));
+			gen_br("beq", _ZERO, _ZERO, use_label(l_next));
 			gen_nop(); /* 分支延迟槽 */
 			break;
 		case 2: /* else */
@@ -648,7 +653,7 @@ static void gen_for(struct ast_node *node)
 			put_label(l_jmp);
 			gen_stmt(p);			
 			reg_wb_all();
-			gen_j("j", use_label(l_head));
+			gen_br("beq", _ZERO, _ZERO, use_label(l_head));
 			gen_nop(); /* 分支延迟槽 */
 			put_label(l_next);
 			break;
@@ -725,12 +730,12 @@ static void gen_stmt(struct ast_node *node)
 		break;
 	case NT_BREAK:
 		reg_wb_all();
-		gen_j("j", use_label(while_next));
+		gen_br("beq", _ZERO, _ZERO, use_label(while_next));
 		gen_nop();
 		break;
 	case NT_CONTINUE:
 		reg_wb_all();
-		gen_j("j", use_label(while_jmp));
+		gen_br("beq", _ZERO, _ZERO, use_label(while_jmp));
 		gen_nop();
 		break;
 	case NT_RETURN:
@@ -741,7 +746,7 @@ static void gen_stmt(struct ast_node *node)
 				gen_r("addu", _V0, _ZERO, rl);
 		}
 		reg_wb_all();
-		gen_j("j", use_label(func_ret));
+		gen_br("beq", _ZERO, _ZERO, use_label(func_ret);
 		gen_r("addu", _V0, _ZERO, rl);
 		break;
 	case NT_WRITEE:
