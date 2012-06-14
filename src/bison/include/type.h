@@ -75,7 +75,7 @@ static inline int type_is_equal_bystru(struct type *ty1, struct type *ty2)
 		return type_is_equal_bystru(ty1->t1, ty2->t1) &&
 			type_is_equal_bystru(ty1->t2, ty2->t2);
 	if(ty1->type == TYPE_ARRAY)
-		return type_is_equal_bystru(ty1->t2, ty2->t2);
+		return ty1->n == ty2->n && type_is_equal_bystru(ty1->t2, ty2->t2);
 	return 0;
 }
 
