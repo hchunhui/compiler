@@ -151,14 +151,22 @@ static FILE *fp;
 static void gen_lval(struct ast_node *node, int op)
 {
 	struct sym_entry *e;
-	
+	int len;
+	int lev;
+	int i;
 	while(node->id != 'I')
 		node = get_child(node);
 	e = node->pval;
-	if(e->tab->uplink)
-		geni(op, 0, e->svar.offset);
+	len = type_len(e->type);
+	if(op == lar || op == sar)
+		len = 1;
+	lev = e->tab->uplink ? 0 : 1;
+	if(op == lod)
+		for(i = 0; i < len; i++)
+			geni(op, lev, e->svar.offset+i);
 	else
-		geni(op, 1, e->svar.offset);
+		for(i = len - 1; i >= 0; i--)
+			geni(op, lev, e->svar.offset+i);
 }
 
 static void gen_call(struct ast_node *node)
