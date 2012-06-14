@@ -38,8 +38,16 @@ static struct type
 			    "类型错误\n");
 		return get_type(TYPE_VOID, 0, NULL, NULL);
 	}
-	if(type_is_equal_bystru(lt, rt))
-		return lt;
+	if(type_is_array(lt) || type_is_array(rt))
+	{
+		if(type_is_equal_byname(lt, rt))
+			return lt;
+	}
+	else
+	{
+		if(type_is_equal_bystru(lt, rt))
+			return lt;
+	}
 	if(type_is_int(lt) && type_is_float(rt))
 		return rt;
 	if(type_is_float(lt) && type_is_int(rt))
