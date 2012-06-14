@@ -532,6 +532,8 @@ static void gen_init(struct type *t, int off)
 		geni(init, _BOOL, off);
 	else if(type_is_array(t))
 	{
+		while(t->type != TYPE_ARRAY)
+			t = t->t2;
 		while(t->type == TYPE_ARRAY)
 			t = t->t2;
 		for(i = 0; i < len; i++)
@@ -539,7 +541,6 @@ static void gen_init(struct type *t, int off)
 	}
 	else
 	{
-		__asm__("int $3");
 		dump_type(t, stderr);
 		exit(1);
 	}
