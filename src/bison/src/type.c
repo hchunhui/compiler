@@ -179,6 +179,8 @@ struct list_head *type_list_add(struct list_head *h, struct type *type, char *na
 
 int type_len(struct type *t)
 {
+	if(type_is_type(t))
+		return type_len(t->t2);
 	if(type_is_var(t) && !type_is_array(t))
 		return 1;
 	if(!type_is_var(t))
