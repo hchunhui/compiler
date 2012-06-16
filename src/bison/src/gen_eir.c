@@ -147,49 +147,40 @@ static void gen_block(struct ast_node *block);
 static int  gen_code(struct sym_tab *ptab);
 
 static FILE *fp;
-
-static void gen_lval(struct ast_node *node, int op)
+static int get_lval_len(struct ast_node *node)
 {
-	struct sym_entry *e;
-	int len;
-	int lev;
 	int i;
-	while(node->id != 'I')
-		node = get_child(node);
-	e = node->pval;
-	len = type_len(e->type);
-	if(op == lar || op == sar)
-		len = 1;
-	lev = e->tab->uplink ? 0 : 1;
-	if(op == lod)
-		for(i = 0; i < len; i++)
-			geni(op, lev, e->svar.offset+i);
-	else
-		for(i = len - 1; i >= 0; i--)
-			geni(op, lev, e->svar.offset+i);
-}
-
-static void gen_call(struct ast_node *node)
-{
-	struct sym_entry *e;
-	while(node->id != 'I')
-		node = get_child(node);
-	e = node->pval;
-	refill[cx] = e;
-	geni(cal, 1, 0);
-}
-
-static void gen_explist(struct ast_node *list)
-{
-	struct ast_node *exp, *tmp;
-	if(list)
-		list_for_each_entry_rev(exp, tmp, &list->chlds, sibling)
+	int lim, len;
+	struct ast_node *p, *l, *r;
+	struct type *tlt;
+	if(node->id != 'A')
+	{
+		len = type_len(((struct sym_entry *)node->pval)->type);
+		return len;
+	}
+	get_lr_child(node, &l, &r);
+	len = type_len(((struct sym_entry *)l->pval)->type);
+	i = 0;
+	list_for_each_entry(p, &node->chlds, sibling)
+	{
+		if(i == 0)
 		{
-			gen_exp(exp, 1);
+			tlt = ((struct sym_entry *)l->pval)->type;
+			lim = 1;
 		}
+		else
+		{
+			lim *= tlt->n;
+			do {
+			tlt = tlt->t2;
+			}while(tlt->type == TYPE_TYPE);
+		}
+		i++;
+	}
+	return len/lim;
 }
 
-static void gen_array_num(struct ast_node *node)
+static int gen_array_num(struct ast_node *node)
 {
 	int i;
 	int lim;
@@ -225,8 +216,111 @@ static void gen_array_num(struct ast_node *node)
 		}
 		i++;
 	}
-	geni(lit, 0, lim);
+	return lim;
 }
+
+static void gen_lval(struct ast_node *node, int w, int order)
+{
+	struct sym_entry *e, *e_b, *e_n;
+	struct ast_node *p;
+	int op;
+	int len, pl;
+	int lev;
+	int i;
+	int isar;
+	/* 取符号 */
+	p = node;
+	while(p->id != 'I')
+		p = get_child(p);
+	e = p->pval;
+	if(type_is_array(e->type))
+	{
+		if(w) op = sar; else op = lar;
+		isar = 1;
+	}
+	else
+	{
+		if(w) op = sto; else op = lod;
+		isar = 0;
+	}
+	/* 判断左值是否为数组访问 */
+	if(node->id == 'A')
+		pl = gen_array_num(node);
+	else
+		pl = 1;
+	/* 计算存取长度 */
+	len = type_len(e->type);
+	len /= pl;
+	lev = e->tab->uplink ? 0 : 1;
+	/* 生成代码 */
+	if(len == 1)
+	{
+		if(isar)
+			geni(lit, 0, type_len(e->type));
+		geni(op, lev, e->svar.offset);
+		if(w && isar)
+		  geni(Int, 0, -1);
+	}
+	else
+	{
+		e_b = symtab_lookup(global_tab, "*helper_b", 1);
+		e_n = symtab_lookup(global_tab, "*helper_n", 1);
+		if(node->id == 'A')
+		{
+			geni(lit, 0, len);
+			geno(opr, 0, mult);
+		}
+		else
+			geni(lit, 0, 0);
+		if(!order)
+		{
+			geni(lit, 0, len-1);
+			geno(opr, 0, add);
+		}
+		geni(sto, 1, e_b->svar.offset);
+		geni(lit, 0, len-1);
+		if(!order) geno(opr, 0, neg);
+		geni(sto, 1, e_n->svar.offset);
+/* helper start */
+/*head*/	geni(lod, 1, e_n->svar.offset);
+		geni(lod, 1, e_b->svar.offset);
+		geno(opr, 0, add);
+		geni(lit, 0, 0x7fffffff);
+		geni(op, lev, e->svar.offset);
+		if(w)
+			geni(Int, 0, -1);
+		geni(lod, 1, e_n->svar.offset);
+		geni(jpc, 0, cx+6/*done*/);
+		geni(lod, 1, e_n->svar.offset);
+		geni(lit, 0, 1);
+		geno(opr, 0, (order ? minuss : add));
+		geni(sto, 1, e_n->svar.offset);
+		geni(jmp, 0, cx-12+(w?0:1)/*head*/);
+/*done*/
+/* helper end */
+	}
+}
+
+static void gen_call(struct ast_node *node)
+{
+	struct sym_entry *e;
+	while(node->id != 'I')
+		node = get_child(node);
+	e = node->pval;
+	refill[cx] = e;
+	geni(cal, 1, 0);
+}
+
+static void gen_explist(struct ast_node *list)
+{
+	struct ast_node *exp, *tmp;
+	if(list)
+		list_for_each_entry_rev(exp, tmp, &list->chlds, sibling)
+		{
+			gen_exp(exp, 1);
+		}
+}
+
 
 static void gen_exp(struct ast_node *node, int need_reload)
 {
@@ -261,7 +355,7 @@ static void gen_exp(struct ast_node *node, int need_reload)
 			geno(opr, 0, notnot);
 		code[cj1].v.i = cx;
 		code[cj2].v.i = cx;
-		goto clean_stack;
+		return;
 	case OR:
 		get_lr_child(node, &l, &r);
 		if(need_reload)
@@ -278,7 +372,7 @@ static void gen_exp(struct ast_node *node, int need_reload)
 			geno(opr, 0, notnot);
 		code[cj1].v.i = cx;
 		code[cj2].v.i = cx;
-		goto clean_stack;
+		return;
 	case NOT: func = notnot;break;
 	case '|':
 	case '&':
@@ -292,17 +386,9 @@ static void gen_exp(struct ast_node *node, int need_reload)
 	case '=':
 		get_lr_child(node, &l, &r);
 		gen_exp(r, 1);
-		if(l->id == 'A')
-		{
-			gen_array_num(l);
-			gen_lval(l, sar);
-		}
-		else
-		{
-			gen_lval(l, sto);
-		}
+		gen_lval(l, 1, 1);
 		if(need_reload)
-			geni(Int, 0, 1);
+			gen_exp(r, 1);
 		return;
 	case 'F':
 		get_lr_child(node, &l, &r);
@@ -322,13 +408,10 @@ static void gen_exp(struct ast_node *node, int need_reload)
 			genb(lit, 0, node->ival);
 		return;
 	case 'I':
-		if(need_reload)
-			gen_lval(node, lod);
-		return;
 	case 'A':
-		gen_array_num(node);
-		gen_lval(node, lar);
-		goto clean_stack;
+		if(need_reload)
+			gen_lval(node, 0, 0);
+		return;
 	default: new_error(1,
 			   node->first_line,
 			   node->first_column,
@@ -447,22 +530,20 @@ static void gen_for(struct ast_node *node)
 static void gen_read(struct ast_node *list)
 {
 	struct ast_node *exp;
+	int i, n;
 	if(list)
 		list_for_each_entry(exp, &list->chlds, sibling)
 		{
-			geno(opr, _FLOAT, readd);
-			if(exp->id == 'A')
-			{
-				gen_array_num(exp);
-				gen_lval(exp, sar);
-			}
-			else
-				gen_lval(exp, sto);
+			n = get_lval_len(exp);
+			for(i = 0; i < n; i++)
+				geno(opr, _FLOAT, readd);
+			gen_lval(exp, 1, 1);
 		}
 }
 
 static void gen_stmt(struct ast_node *node)
 {
+	int i, n;
 	switch(node->type)
 	{
 	case NT_EXP:
@@ -498,8 +579,20 @@ static void gen_stmt(struct ast_node *node)
 		geno(opr, 0, writes);
 		break;
 	case NT_WRITEE:
-		gen_exp(get_child(node), 1);
-		geno(opr, 0, writee);
+		node = get_child(node);
+		if(node->id == 'I' ||
+		   node->id == 'A')
+		{
+			n = get_lval_len(node);
+			gen_lval(node, 0, 1);
+		}
+		else
+		{
+			n = 1;
+			gen_exp(node, 1);
+		}
+		for(i = 0; i < n; i++)
+			geno(opr, 0, writee);
 		break;
 	case NT_READ:
 		gen_read(get_child(node));
@@ -644,6 +737,8 @@ static void gen_code_all(struct sym_tab *ptab, char *name)
 	cx = 0;
 	global_tab = ptab;
 
+	symtab_enter(ptab, "*helper_b", get_type(TYPE_INT, 0, 0, NULL, NULL));
+	symtab_enter(ptab, "*helper_n", get_type(TYPE_INT, 0, 0, NULL, NULL));
 	geni(lit, 0, 1);
 	geni(sto, 0, 0);
 	/* 生成代码 */

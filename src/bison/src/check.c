@@ -109,11 +109,6 @@ static struct type *gen_array(struct ast_node *node, int w)
 		}
 		i++;
 	}
-	if(type_is_array(lt))
-		new_error_p(0,
-			  node->first_line,
-			  node->first_column,
-			  "数组维数不够\n");
 	return lt;
 }
 
