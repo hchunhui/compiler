@@ -522,7 +522,7 @@ static void gen_block(struct ast_node *block)
 static void gen_init(struct type *t, int off)
 {
 	int i;
-	int len;
+	int len, pl;
 	len = type_len(t);
 	if(type_is_int(t))
 		geni(init, _INT, off);
@@ -536,8 +536,10 @@ static void gen_init(struct type *t, int off)
 			t = t->t2;
 		while(t->type == TYPE_ARRAY)
 			t = t->t2;
+		pl = type_len(t);
+		len /= pl;
 		for(i = 0; i < len; i++)
-			gen_init(t, off+i);
+			gen_init(t, off+i*pl);
 	}
 	else
 	{
