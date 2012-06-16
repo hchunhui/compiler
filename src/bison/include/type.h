@@ -1,11 +1,10 @@
 #ifndef _TYPE_H_
 #define _TYPE_H_
 #include <stdio.h>
-
 struct type {
 	struct list_head list;
 	enum {
-		TYPE_VOID,
+		TYPE_VOID = 0,
 		TYPE_INT,
 		TYPE_FLOAT,
 		TYPE_BOOL,
@@ -15,6 +14,7 @@ struct type {
 		TYPE_TYPE,
 	} type;
 	int n;
+	int is_const;
 	union {
 		struct sym_entry *e;
 		struct type *t1;
@@ -51,6 +51,14 @@ static inline int type_is_xx(struct type *t, int type)
 	 || type_is_bool(t) || type_is_array(t))
 
 #define type_is_label(t) ((t)->type == TYPE_LABEL)
+static inline int type_is_const(struct type *t)
+{
+	if(t->is_const)
+		return 1;
+	if(type_is_array(t))
+		return type_is_const(t->t2);
+	return 0;
+}
 
 static inline int type_is_equal_byname(struct type *t1, struct type *t2)
 {
@@ -79,8 +87,7 @@ static inline int type_is_equal_bystru(struct type *ty1, struct type *ty2)
 	return 0;
 }
 
-
-struct type *get_type(int type, int n, void *t1, struct type *t2);
+struct type *get_type(int type, int n, int is_const, void *t1, struct type *t2);
 struct type *array_type(struct type *t, int n);
 struct type *func_type(struct type *t, struct list_head *type_list);
 void dump_type(struct type *t, FILE *fp);

@@ -22,7 +22,7 @@ static unsigned long typehash(int type, int n, void *t1, struct type *t2)
 	return type ^ n ^ (((unsigned long)t1)>>3);
 }
 
-static struct type *find_type(int type, int n, void *t1, struct type *t2)
+static struct type *find_type(int type, int n, int is_const, void *t1, struct type *t2)
 {
 	unsigned int hash, idx;
 	struct type *e;
@@ -32,6 +32,7 @@ static struct type *find_type(int type, int n, void *t1, struct type *t2)
 	{
 		if(e->type == type &&
 		   e->n == n &&
+		   e->is_const == is_const &&
 		   e->t1 == t1 &&
 		   e->t2 == t2)
 			return e;
@@ -39,7 +40,7 @@ static struct type *find_type(int type, int n, void *t1, struct type *t2)
 	return NULL;
 }
 
-static struct type *new_type(int type, int n, void *t1, struct type *t2)
+static struct type *new_type(int type, int n, int is_const, void *t1, struct type *t2)
 {
 	unsigned int hash, idx;
 	struct type *e;
@@ -48,19 +49,20 @@ static struct type *new_type(int type, int n, void *t1, struct type *t2)
 	idx = hash%HASHSIZE;
 	e->type = type;
 	e->n = n;
+	e->is_const = is_const;
 	e->t1 = t1;
 	e->t2 = t2;
 	list_add_tail(&e->list, &type_entry[idx]);
 	return e;
 }
 
-struct type *get_type(int type, int n, void *t1, struct type *t2)
+struct type *get_type(int type, int n, int is_const, void *t1, struct type *t2)
 {
 	struct type *e;
-	e = find_type(type, n, t1, t2);
+	e = find_type(type, n, is_const, t1, t2);
 	if(e)
 		return e;
-	return new_type(type, n, t1, t2);
+	return new_type(type, n, is_const, t1, t2);
 }
 
 struct type *array_type(struct type *t, int n)
@@ -68,12 +70,12 @@ struct type *array_type(struct type *t, int n)
 	struct type *p;
 	if(t->type != TYPE_ARRAY &&
 	   t->type != TYPE_FUNC)
-		return new_type(TYPE_ARRAY, n, NULL, t);
+		return new_type(TYPE_ARRAY, n, 0, NULL, t);
 	p = t;
 	while(p->t2->type == TYPE_ARRAY ||
 	      p->t2->type == TYPE_FUNC)
 		p = p->t2;
-	p->t2 = new_type(TYPE_ARRAY, n, NULL, p->t2);
+	p->t2 = new_type(TYPE_ARRAY, n, 0, NULL, p->t2);
 	return t;
 }
 
@@ -97,12 +99,12 @@ struct type *func_type(struct type *t, struct list_head *type_list)
 	}
 
 	if(type_list == NULL)
-		nt = new_type(TYPE_FUNC, 0,
-			      get_type(TYPE_VOID, 0, NULL, NULL),
+		nt = new_type(TYPE_FUNC, 0, 0,
+			      get_type(TYPE_VOID, 0, 0, NULL, NULL),
 			      nt);
 	else
 		list_for_each_entry_safe(tle, tmp, type_list, list)
-			nt = new_type(TYPE_FUNC, 0, tle->type, nt);
+			nt = new_type(TYPE_FUNC, 0, 0, tle->type, nt);
 	
 	if(t->type == TYPE_ARRAY ||
 	   t->type == TYPE_FUNC)
@@ -115,6 +117,10 @@ struct type *func_type(struct type *t, struct list_head *type_list)
 
 void dump_type(struct type *t, FILE *fp)
 {
+	if(t->is_const)
+	{
+		fprintf(fp, "const ");
+	}
 	switch(t->type)
 	{
 	case TYPE_INT:
@@ -145,8 +151,8 @@ void dump_type(struct type *t, FILE *fp)
 		fprintf(fp,"label");
 		break;
 	case TYPE_TYPE:
-		fprintf(fp, "%s", t->e->name);
-		//dump_type(t->t2, fp);
+		fprintf(fp, "%s@", t->e->name);
+		dump_type(t->t2, fp);
 		break;
 	default:
 		fprintf(fp,"\n错误：%d\n", t->type);

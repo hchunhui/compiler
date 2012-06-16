@@ -97,7 +97,7 @@ symtab_enter_type(struct sym_tab *ptab, char *name, struct type *type)
 			  0, "符号重名\n");
 	entry = new_entry(ptab, name);
 	entry->kind = SYM_TYPE;
-	entry->type = get_type(TYPE_TYPE, 0, entry, type);
+	entry->type = get_type(TYPE_TYPE, 0, 0, entry, type);
 	return entry;
 }
 

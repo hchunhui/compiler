@@ -156,7 +156,13 @@ decl0
 decl_list
 	: type decl_list0 { curr_type = $1; } ;
 type
-	: ATYPE { $$ = curr_type; curr_type = $1; } ;
+	: ATYPE { $$ = curr_type; curr_type = $1; }
+	| CONST ATYPE
+	{
+		$$ = curr_type;
+		curr_type = get_type($2->type, $2->n, 1, $2->t1, $2->t2);
+	}
+	;
 decl_list0
 	: decl01 {
 		decl_sym(@$.first_line,

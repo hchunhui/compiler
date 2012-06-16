@@ -27,7 +27,7 @@ static struct sym_entry *get_new_label()
 	sprintf(l, "%d", n++);
 	return symtab_enter(global_tab,
 			    l,
-			    get_type(TYPE_LABEL, 0, NULL, NULL));
+			    get_type(TYPE_LABEL, 0, 0, NULL, NULL));
 }
 
 static void put_label(struct sym_entry *e)

@@ -36,7 +36,7 @@ static struct type
 			    node->first_line,
 			    node->first_column,
 			    "类型错误\n");
-		return get_type(TYPE_VOID, 0, NULL, NULL);
+		return get_type(TYPE_VOID, 0, 0, NULL, NULL);
 	}
 	if(type_is_array(lt) || type_is_array(rt))
 	{
@@ -69,7 +69,7 @@ static struct type
 	new_space();
 	dump_type(rt, stderr);
 	new_eol();
-	return get_type(TYPE_VOID, 0, NULL, NULL);
+	return get_type(TYPE_VOID, 0, 0, NULL, NULL);
 }
 static struct type *gen_lval(struct ast_node *node);
 static struct type *gen_array(struct ast_node *node)
@@ -126,22 +126,22 @@ static struct type *gen_lval(struct ast_node *node)
 		    node->first_line,
 		    node->first_column,
 		    "需要左值但不是左值\n");
-	return get_type(TYPE_VOID, 0, NULL, NULL);
+	return get_type(TYPE_VOID, 0, 0, NULL, NULL);
 }
 
 static struct type *gen_exp(struct ast_node *node)
 {
 	struct ast_node *p, *l, *r;
 	struct type *lt, *rt;
-	if(node->type == NT_NUL) return get_type(TYPE_VOID, 0, NULL, NULL);
+	if(node->type == NT_NUL) return get_type(TYPE_VOID, 0, 0, NULL, NULL);
 	switch(node->id)
 	{
 	case 'i':
-		return get_type(TYPE_INT, 0, NULL, NULL);
+		return get_type(TYPE_INT, 0, 0, NULL, NULL);
 	case 'f':
-		return get_type(TYPE_FLOAT, 0, NULL, NULL);
+		return get_type(TYPE_FLOAT, 0, 0, NULL, NULL);
 	case 'b':
-		return get_type(TYPE_BOOL, 0, NULL, NULL);
+		return get_type(TYPE_BOOL, 0, 0, NULL, NULL);
 	case 'I':
 		return gen_lval(node);
 	}
@@ -151,7 +151,7 @@ static struct type *gen_exp(struct ast_node *node)
 	{
 	case EQ_OP: case NE_OP: case '<': case GE_OP: case '>': case LE_OP:
 	case AND: case OR: case NOT:
-		return get_type(TYPE_BOOL, 0, NULL, NULL);
+		return get_type(TYPE_BOOL, 0, 0, NULL, NULL);
 	case '%':
 	case '|': case '&': case '~':
 		lt = gen_exp(l);
@@ -164,6 +164,11 @@ static struct type *gen_exp(struct ast_node *node)
 		return lt;
 	case '=':
 		lt = gen_lval(l);
+		if(type_is_const(lt))
+			new_error_p(0,
+				    node->first_line,
+				    node->first_column,
+				    "向常量单元赋值\n");
 		rt = gen_exp(r);
 		up_type(node, lt, rt);
 		if(type_is_func(rt) || type_is_void(rt))
@@ -196,7 +201,7 @@ static struct type *gen_exp(struct ast_node *node)
 					    p->first_line,
 					    p->first_column,
 					    "函数调用参数多\n");
-				return get_type(TYPE_VOID, 0, NULL, NULL);
+				return get_type(TYPE_VOID, 0, 0, NULL, NULL);
 			}
 		}
 	func_out:
