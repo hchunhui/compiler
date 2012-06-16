@@ -55,7 +55,7 @@ static inline int type_is_const(struct type *t)
 {
 	if(t->is_const)
 		return 1;
-	if(type_is_array(t))
+	if(type_is_array(t) || type_is_type(t))
 		return type_is_const(t->t2);
 	return 0;
 }

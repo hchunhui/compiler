@@ -71,8 +71,8 @@ static struct type
 	new_eol();
 	return get_type(TYPE_VOID, 0, 0, NULL, NULL);
 }
-static struct type *gen_lval(struct ast_node *node);
-static struct type *gen_array(struct ast_node *node)
+static struct type *gen_lval(struct ast_node *node, int w);
+static struct type *gen_array(struct ast_node *node, int w)
 {
 	int i;
 	struct ast_node *p;
@@ -81,7 +81,7 @@ static struct type *gen_array(struct ast_node *node)
 	list_for_each_entry(p, &node->chlds, sibling)
 	{
 		if(i == 0)
-			lt = gen_lval(p);
+			lt = gen_lval(p, w);
 		else
 		{
 			rt = gen_exp(p);
@@ -91,14 +91,21 @@ static struct type *gen_array(struct ast_node *node)
 					    p->first_column,
 					    "数组访问下标不是整数\n");
 			if(type_is_array(lt))
-				do {
+			{
+				while(lt->type == TYPE_TYPE)
 					lt = lt->t2;
-				} while(lt->type == TYPE_TYPE);
+				lt = lt->t2;
+			}
 			else
 				new_error_p(0,
 					  node->first_line,
 					  node->first_column,
 					  "数组维数不正确\n");
+			if(w && type_is_const(lt))
+				new_error_p(0,
+					    node->first_line,
+					    node->first_column,
+					    "向常量单元赋值\n");
 		}
 		i++;
 	}
@@ -110,17 +117,22 @@ static struct type *gen_array(struct ast_node *node)
 	return lt;
 }
 
-static struct type *gen_lval(struct ast_node *node)
+static struct type *gen_lval(struct ast_node *node, int w)
 {
 	struct sym_entry *e;
 	if(node->type == NT_EXP && node->id == 'I')
 	{
 		e = node->pval;
+		if(w && type_is_const(e->type))
+			new_error_p(0,
+				    node->first_line,
+				    node->first_column,
+				    "向常量单元赋值\n");
 		return e->type;
 	}
 	if(node->type == NT_EXP && node->id == 'A')
 	{
-		return gen_array(node);
+		return gen_array(node, w);
 	}
 	new_error_p(0,
 		    node->first_line,
@@ -143,7 +155,7 @@ static struct type *gen_exp(struct ast_node *node)
 	case 'b':
 		return get_type(TYPE_BOOL, 0, 0, NULL, NULL);
 	case 'I':
-		return gen_lval(node);
+		return gen_lval(node, 0);
 	}
 	get_lr_child(node, &l, &r);
 	
@@ -163,12 +175,7 @@ static struct type *gen_exp(struct ast_node *node)
 				  "'%c'运算符需要整型\n", node->id);
 		return lt;
 	case '=':
-		lt = gen_lval(l);
-		if(type_is_const(lt))
-			new_error_p(0,
-				    node->first_line,
-				    node->first_column,
-				    "向常量单元赋值\n");
+		lt = gen_lval(l, 1);
 		rt = gen_exp(r);
 		up_type(node, lt, rt);
 		if(type_is_func(rt) || type_is_void(rt))
@@ -179,7 +186,7 @@ static struct type *gen_exp(struct ast_node *node)
 		return lt;
 	case 'F':
 		call_count++;
-		lt = gen_lval(l);
+		lt = gen_lval(l, 0);
 		if(!type_is_func(lt))
 			new_error_p(0,
 				    l->first_line,
@@ -212,7 +219,7 @@ static struct type *gen_exp(struct ast_node *node)
 				    "函数调用参数不足\n");
 		return lt;
 	case 'A':
-		return gen_array(node);
+		return gen_array(node, 0);
 	default:
 		lt = gen_exp(l);
 		if(r)
@@ -294,7 +301,7 @@ static void gen_read(struct ast_node *list)
 	if(list)
 		list_for_each_entry(exp, &list->chlds, sibling)
 		{
-			gen_lval(exp);
+			gen_lval(exp, 1);
 		}
 }
 
