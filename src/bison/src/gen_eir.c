@@ -170,10 +170,10 @@ static int get_lval_len(struct ast_node *node)
 		}
 		else
 		{
+			while(tlt->type == TYPE_TYPE)
+				tlt = tlt->t2;
 			lim *= tlt->n;
-			do {
 			tlt = tlt->t2;
-			}while(tlt->type == TYPE_TYPE);
 		}
 		i++;
 	}
@@ -198,21 +198,21 @@ static int gen_array_num(struct ast_node *node)
 		else if(i == 1)
 		{
 			gen_exp(p, 1);
+			while(tlt->type == TYPE_TYPE)
+				tlt = tlt->t2;
 			lim *= tlt->n;
-			do {
 			tlt = tlt->t2;
-			}while(tlt->type == TYPE_TYPE);
 		}
 		else
 		{
+			while(tlt->type == TYPE_TYPE)
+				tlt = tlt->t2;
 			geni(lit, 0, tlt->n);
 			geno(opr, 0, mult);
 			gen_exp(p, 1);
 			geno(opr, 0, add);
 			lim *= tlt->n;
-			do {
 			tlt = tlt->t2;
-			}while(tlt->type == TYPE_TYPE);
 		}
 		i++;
 	}
