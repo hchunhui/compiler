@@ -46,7 +46,7 @@ int main(int argc, char **argv)
 				"%s: C1 compiler\n"
 				"Usage: %s [-m mach] [-o obj_file] src_file\n\n"
 				"o  output in obj_file (default: a.out)\n"
-				"m  select a object machine (default:pl0sim)\n",
+				"m  select a object machine (default:eir)\n",
 				argv[0],
 				argv[0]);
 			fprintf(stderr,
