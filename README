@@ -22,7 +22,7 @@ src/
 |  |--type.c        类型系统
 |  |--check.c       语义检查系统
 |  |--gen_c.c       从AST生成C代码的生成器
-|  |--gen_pl0sim.c  从AST生成PL/0中间代码的生成器
+|  |--gen_eir.c     从AST生成PL/0中间代码的生成器
 |  |--gen_spim.c    从AST生成MIPS汇编代码的生成器
 |--include/
 |  |--ast_node.h    AST实现
