@@ -422,23 +422,29 @@ static int gen_exp(struct ast_node *node, int ri)
 	case AND:
 		get_lr_child(node, &l, &r);
 		rl = gen_exp(l, _V1);
+		reg_wb_all();
 		gen_br("beq", rl, _ZERO, use_label(lab));
 		gen_r("addu", ri, _ZERO, _ZERO);
 		rl = gen_exp(r, _V1);
+		reg_wb_all();
 		gen_br("beq", rl, _ZERO, use_label(lab));
-		gen_nop();
-		gen_i("xori", ri, ri, 1);
+		gen_r("addu", ri, _ZERO, _ZERO);
+		gen_i("addiu", ri, _ZERO, 1);
+		reg_wb_all();
 		put_label(lab);
 		return ri;
 	case OR:
 		get_lr_child(node, &l, &r);
 		rl = gen_exp(l, _V1);
+		reg_wb_all();
 		gen_br("bne", rl, _ZERO, use_label(lab));
 		gen_i("addiu", ri, _ZERO, 1);
 		rl = gen_exp(r, _V1);
+		reg_wb_all();
 		gen_br("bne", rl, _ZERO, use_label(lab));
-		gen_nop();
-		gen_i("xori", ri, ri, 1);
+		gen_i("addiu", ri, _ZERO, 1);
+		gen_r("addu", ri, _ZERO, _ZERO);
+		reg_wb_all();
 		put_label(lab);
 		return ri;
 	case NOT:
@@ -562,7 +568,7 @@ static int gen_exp(struct ast_node *node, int ri)
 	}
 	else
 	{
-		rl = gen_exp(l, _V1);
+		rl = gen_exp(l, ri);
 		if(func == "subu")
 			gen_r("subu", ri, _ZERO, rl);
 	}
