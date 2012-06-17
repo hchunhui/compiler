@@ -1,6 +1,5 @@
 %{
 #include <stdarg.h>
-#include "file.h"
 #include "ast_node.h"
 #include "sym_tab.h"
 #include "type.h"
