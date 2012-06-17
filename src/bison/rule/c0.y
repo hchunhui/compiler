@@ -85,7 +85,7 @@ static struct sym_entry
 %nonassoc ELSE
 
 %type <fval> FNUMBER
-%type <ival> NUMBER BNUMBER
+%type <ival> NUMBER BNUMBER cexp
 %type <name> IDENTIFIER
 %type <ival> IF WHILE
 %type <tptr> ATYPE
@@ -181,7 +181,7 @@ decl01
 
 decl00
 	: IDENTIFIER { $$.type = curr_type; $$.name = $1; $$.args = NULL;}
-	| decl00 '[' NUMBER ']'{
+	| decl00 '[' cexp ']'{
 		$$.type = array_type($1.type, $3);
 		$$.name = $1.name;
 		$$.args = $1.args;
@@ -203,7 +203,7 @@ arg_list
 	;
 arg
 	: ATYPE IDENTIFIER { $$.type = $1; $$.name = $2; }
-	| arg '[' NUMBER ']' { $$.type = array_type($1.type, $3); $$.name = $1.name; }
+	| arg '[' cexp ']' { $$.type = array_type($1.type, $3); $$.name = $1.name; }
 	| arg '(' arg_list ')' { $$.type = func_type($1.type, $3); $$.name = $1.name; }
 	| arg '(' ')'
 	{
@@ -298,6 +298,30 @@ exp
 		$$ = $2;
 		setloc($$, @$.first_line, @$.first_column);
 	}
+	;
+
+cexp
+	: NUMBER	{ $$ = $1; }
+	| cexp OR cexp	{ $$ = ($1 || $3); }
+	| cexp AND cexp	{ $$ = ($1 && $3); }
+        | cexp '|' cexp	{ $$ = ($1 | $3); }
+        | cexp '&' cexp	{ $$ = ($1 & $3); }
+        | cexp NE_OP cexp	{ $$ = ($1 != $3); }
+        | cexp EQ_OP cexp	{ $$ = ($1 == $3); }
+        | cexp '>' cexp	{ $$ = ($1 > $3); }
+        | cexp '<' cexp	{ $$ = ($1 < $3); }
+        | cexp GE_OP cexp	{ $$ = ($1 >= $3); }
+        | cexp LE_OP cexp	{ $$ = ($1 <= $3); }
+        | cexp '+' cexp	{ $$ = ($1 + $3); }
+        | cexp '-' cexp	{ $$ = ($1 - $3); }
+	| cexp '*' cexp	{ $$ = ($1 * $3); }
+	| cexp '/' cexp	{ $$ = ($1 / $3); }
+	| cexp '%' cexp	{ $$ = ($1 % $3); }
+	| '+' cexp %prec PREFIX	{ $$ = $2; }
+	| '-' cexp %prec PREFIX	{ $$ = -$2; }
+	| NOT cexp %prec PREFIX	{ $$ = !$2; }
+	| '~' cexp %prec PREFIX	{ $$ = ~$2; }
+	| '(' cexp ')' %prec HIGH { $$ = $2; }
 	;
 
 exp_or_not
