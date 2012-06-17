@@ -1,0 +1,28 @@
+int factorial(int n) {
+
+	int fact;
+	if(n<0) {
+		write("The number is less than zero");
+		return 0;
+	}
+	if(n==0) return 1;
+
+
+	fact=n;
+	while (n>1) {
+		n = n-1;
+		fact = fact * n;
+	}
+	return fact;
+}
+
+int main() {
+	int fact;
+	
+	write("Please input an integer: ");
+	read(fact);
+	fact= factorial(fact);
+	write("\nthe factorial is : ");
+	write (fact); 
+	return 1;
+}

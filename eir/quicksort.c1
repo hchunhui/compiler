@@ -1,0 +1,60 @@
+int i = 1;  
+int data[10] = {123,52,8,74,62,74,55,44,74,80};
+int data_length=10;
+void printArray() {
+	int i = 0; 
+	while (i < data_length) {
+		write("\n    Member "); write(i); write(" is ");
+		write( data[i]); i=i+1;
+	}
+}
+
+int partition(int low, int high) {
+	int pivot = data[low], i = low, j = high;
+	while (i < j) {
+		while (i<j && data[j] >= pivot) j=j-1;
+			data[i] = data[j];
+		while (i<j && data[i] <= pivot) i=i+1;
+			data[j] = data[i];
+	}
+	data[i] = pivot;
+	return i;
+}
+
+void qsort(int low, int high) {
+	int p;
+	if (low >= high) return;
+	p = partition(low, high);
+	qsort(low, p-1);
+	qsort(p + 1, high);
+}
+    
+void readArray( ) {
+	int i = 0;
+	write("Please input "); write(data_length);
+	write(" integers to be sorted.\n");
+	while (i < data_length) {
+		read(data[i]); i=i+1;
+	}
+}
+
+int main() {
+	int flag;
+	while (true){
+		if (i>1 ){
+			write("\nContinue? 1-yes, 0-no: ");
+			read(flag);
+			if (flag == 0 ) break;
+			else if (flag!=1) continue;
+			readArray( );
+		}
+		write("\nExecuting No."); write(i); 
+		write(" quicksort:\n  Before sorting:");
+		printArray();
+		qsort(0, data_length - 1);
+		write("\n  After sorting:");
+		printArray();
+		i = i+1;
+	}
+}
+

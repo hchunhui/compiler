@@ -1,0 +1,13 @@
+int gcd(int p, int q) {
+
+	if(p%q==0) return q;
+	else return gcd(q, p%q);
+}
+
+int main() {
+	int g;
+
+	g = gcd(100,15);
+	write(g); 
+	return 1;    
+}
