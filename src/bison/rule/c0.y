@@ -549,7 +549,7 @@ static struct sym_entry
 				    "符号 %s 不是函数\n", name);
 		else
 		{
-			if(!type_is_equal_byname(e->type, type))
+			if(!type_is_equal_bystru(e->type, type))
 				new_error_p(0,
 					    row,
 					    col,
