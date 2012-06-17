@@ -847,7 +847,7 @@ static void gen_code(struct sym_tab *ptab)
 			printf("function %s is at %d\n",
 			       entry->name,
 			       cx_func);
-			
+			if(entry->attr&1)printf("this is leaf function.\n");
 			entry->sfunc.addr = cx_func;
 			fprintf(fp, "%s:\n", entry->name);
 			offset = 0;

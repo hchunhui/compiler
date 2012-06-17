@@ -158,6 +158,10 @@ static struct type *gen_exp(struct ast_node *node)
 	{
 	case EQ_OP: case NE_OP: case '<': case GE_OP: case '>': case LE_OP:
 	case AND: case OR: case NOT:
+		if(l)
+			lt = gen_exp(l);
+		if(r)
+			rt = gen_exp(r);
 		return get_type(TYPE_BOOL, 0, 0, NULL, NULL);
 	case '%':
 	case '|': case '&': case '~':
