@@ -1,0 +1,65 @@
+C1编译器说明
+-------------------
+* 特点 *
+    - 多目标：对C1源代码，可以生成MIPS汇编码、EIR二进制码和C代码；
+    - 强大的类型系统：可以识别C语言语法的类型定义，输出其类型表达式；
+    - 实现绝大部分C1语言特征；
+    - 带有扩展语法：如continue、for等；
+    - 较详细的错误报告；
+
+* 文档 *
+doc/c1.pdf
+doc/c0.pdf 2.1节 中间代码生成，参照c1.y
+
+* 重要文件说明 *
+src/
+|--rule/
+|  |--c1.y          语法文件
+|  |--c1.lex        词法文件
+|--src/
+|  |--c1c.c         编译器的主程序
+|  |--sym_tab.c     符号表实现
+|  |--type.c        类型系统
+|  |--check.c       语义检查系统
+|  |--gen_c.c       从AST生成C代码的生成器
+|  |--gen_pl0sim.c  从AST生成PL/0中间代码的生成器
+|  |--gen_spim.c    从AST生成MIPS汇编代码的生成器
+|--include/
+|  |--ast_node.h    AST实现
+|  |--list.h        链表实现（从Linux内核中抽取）
+|  |--node_type.h   AST结点类型定义
+|  |--type.h        类型系统头
+|  |--error.h       错误提示
+|  |--eir_inst.h    EIR指令格式
+|  |--gen.h         生成器接口
+|--test/*.c         简单的测试程序
+|--eir/*.c1         测试程序
+
+* 建造 *
+	make clean
+	make
+生成：
+c1c
+
+* 运行 *
+从命令行读取参数，使用方法类似GCC：
+
+编译生成EIR中间代码：
+	./c1c src_file [-o out_file]
+解释EIR：
+        ./interpreter out_file
+
+编译生成C代码：
+	./c1c src_file [-o out_file] -m c
+	
+编译生成MIPS汇编代码：
+	./c1c src_file [-o out_file] -m spim
+
+帮助：
+	./c1c -h
+
+PB09210183 何春晖
+2012.05.05
+2012.06.13
+2012.06.17
+
