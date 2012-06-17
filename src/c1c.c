@@ -17,10 +17,10 @@ struct gen_info *gi[] = {
 	NULL,
 };
 
-/* c0.y */
+/* c1.y */
 extern struct sym_tab *symtab;
 
-/* c0.lex */
+/* c1.lex */
 extern FILE *yyin;
 
 int main(int argc, char **argv)
@@ -43,7 +43,7 @@ int main(int argc, char **argv)
 		case 'h':
 		default: /* '?' */
 			fprintf(stderr,
-				"%s: Bison C0 compiler\n"
+				"%s: C1 compiler\n"
 				"Usage: %s [-m mach] [-o obj_file] src_file\n\n"
 				"o  output in obj_file (default: a.out)\n"
 				"m  select a object machine (default:pl0sim)\n",

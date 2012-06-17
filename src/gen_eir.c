@@ -2,7 +2,7 @@
 #include <string.h>
 #include "ast_node.h"
 #include "sym_tab.h"
-#include "c0.tab.h"
+#include "c1.tab.h"
 #include "gen.h"
 #include "error.h"
 #include "eir_inst.h"

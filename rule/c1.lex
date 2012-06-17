@@ -1,6 +1,6 @@
 %{
 #include <stdio.h>
-#include "c0.tab.h"
+#include "c1.tab.h"
 #include "sym_tab.h"
 #include "type.h"
 #include "error.h"
@@ -146,9 +146,4 @@ void yyerror(char const *s)
 		  yylloc.first_line,
 		  yylloc.first_column,
 		  "%s\n", s);
-	/*printf("\n%*s\n%*s\n",
-	       yylloc.first_column,
-	       "^",
-	       yylloc.first_column,
-	       s);*/
 }
