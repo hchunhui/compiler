@@ -142,9 +142,16 @@ static void gen_i(char *mnemonic, int rt, int rs, short imm)
 	cx++;
 }
 
-static void gen_i2(char *mnemonic, int rt, short imm)
+static void gen_iu(char *mnemonic, int rt, int rs, unsigned short imm)
 {
-	fprintf(fp, "\t%s\t$%s, %hd\n", mnemonic, reg_name[rt], imm);
+	fprintf(fp, "\t%s\t$%s, $%s, %hu\n", mnemonic, reg_name[rt], reg_name[rs], imm);
+	reg[rt].dirty = 1;
+	cx++;
+}
+
+static void gen_i2u(char *mnemonic, int rt, unsigned short imm)
+{
+	fprintf(fp, "\t%s\t$%s, %hu\n", mnemonic, reg_name[rt], imm);
 	reg[rt].dirty = 1;
 	cx++;
 }
@@ -177,17 +184,17 @@ static void gen_li(int ri, unsigned int num)
 {
 	if(num > 0xffff)
 	{
-		gen_i2("lui", ri, num >> 16);
+		gen_i2u("lui", ri, num >> 16);
 		if(num & 0xffff)
-			gen_i("ori", ri, ri, num);
+			gen_iu("ori", ri, ri, num);
 	}
 	else
-		gen_i("ori", ri, _ZERO, num);
+		gen_iu("ori", ri, _ZERO, num);
 }
 
 static void gen_nop()
 {
-	gen_i("sll", _ZERO, _ZERO, 0);
+	gen_iu("sll", _ZERO, _ZERO, 0);
 }
 
 static void reg_init()
@@ -383,7 +390,7 @@ static int gen_assign(struct ast_node *node)
 		ri = gen_exp(r, _AT);
 		if(ri != _AT)
 			gen_r("addu", _AT, _ZERO, ri);
-		gen_i("sll", _AT, _AT, 2);
+		gen_iu("sll", _AT, _AT, 2);
 		e = l->pval;
 		if(e->tab->uplink)
 		{
@@ -452,7 +459,7 @@ static int gen_exp(struct ast_node *node, int ri)
 		rl = gen_exp(l, ri);
 		gen_br("bne", rl, _ZERO, use_label(lab));
 		gen_i("addu", ri, _ZERO, _ZERO);
-		gen_i("xori", ri, ri, 1);
+		gen_iu("xori", ri, ri, 1);
 		put_label(lab);
 		return ri;
 	case 'i':
@@ -474,7 +481,7 @@ static int gen_exp(struct ast_node *node, int ri)
 		rr = gen_exp(r, _AT);
 		if(rr != _AT)
 			gen_r("addu", _AT, _ZERO, rr);
-		gen_i("sll", _AT, _AT, 2);
+		gen_iu("sll", _AT, _AT, 2);
 		e = l->pval;
 		if(e->tab->uplink)
 		{
@@ -507,12 +514,12 @@ static int gen_exp(struct ast_node *node, int ri)
 			if(l->id == 'i' && l->ival == 2)
 			{
 				rr = gen_exp(r, _T9);
-				gen_i("sll", ri, rr, 1);
+				gen_iu("sll", ri, rr, 1);
 				return ri;
 			} else if(r->id == 'i' && r->ival == 2)
 			{
 				rl = gen_exp(l, _V1);
-				gen_i("sll", ri, rl, 1);
+				gen_iu("sll", ri, rl, 1);
 				return ri;
 			}
 		}
@@ -521,7 +528,7 @@ static int gen_exp(struct ast_node *node, int ri)
 			if(r->id == 'i' && r->ival == 2)
 			{
 				rl = gen_exp(l, _V1);
-				gen_i("sra", ri, rl, 1);
+				gen_iu("sra", ri, rl, 1);
 				return ri;
 			}
 		}
@@ -531,7 +538,7 @@ static int gen_exp(struct ast_node *node, int ri)
 		{
 		case EQ_OP:
 			gen_r("xor", ri, rl, rr);
-			gen_i("sltiu", ri, ri, 1);
+			gen_iu("sltiu", ri, ri, 1);
 			break;
 		case NE_OP:
 			gen_r("xor", ri, rl, rr);
@@ -542,14 +549,14 @@ static int gen_exp(struct ast_node *node, int ri)
 			break;
 		case GE_OP:
 			gen_r("slt", ri, rl, rr);
-			gen_i("xori", ri, ri, 1);
+			gen_iu("xori", ri, ri, 1);
 			break;
 		case '>':
 			gen_r("slt", ri, rr, rl);
 			break;
 		case LE_OP:
 			gen_r("slt", ri, rr, rl);
-			gen_i("xori", ri, ri, 1);
+			gen_iu("xori", ri, ri, 1);
 			break;
 		case '/':
 			gen_r("div", _ZERO, rl, rr);
@@ -688,7 +695,7 @@ static void gen_read(struct ast_node *list)
 				ri = gen_exp(r, _AT);
 				if(ri != _AT)
 					gen_r("addu", _AT, _ZERO, ri);
-				gen_i("sll", _AT, _AT, 2);
+				gen_iu("sll", _AT, _AT, 2);
 				e = l->pval;
 				if(e->tab->uplink)
 				{
@@ -884,7 +891,7 @@ static void gen_code(struct sym_tab *ptab)
 			}
 			if(strcmp(entry->name, "main") == 0)
 			{
-				gen_i2("lui", _GP, 0x1000);
+				gen_i2u("lui", _GP, 0x1000);
 				list_for_each_entry(e, &ptab->order, order)
 					if(e->kind == SYM_VAR)
 						if(e->svar.iexp)
