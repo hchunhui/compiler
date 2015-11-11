@@ -747,14 +747,13 @@ static void gen_stmt(struct ast_node *node)
 		break;
 	case NT_RETURN:
 		if(node->id)
-		{
 			rl = gen_exp(get_child(node), _V0);
-			if(rl != _V0)
-				gen_r("addu", _V0, _ZERO, rl);
-		}
 		reg_wb_all();
 		gen_br("beq", _ZERO, _ZERO, use_label(func_ret));
-		gen_r("addu", _V0, _ZERO, rl);
+		if(node->id && rl != _V0)
+			gen_r("addu", _V0, _ZERO, rl);
+		else
+			gen_nop();
 		break;
 	case NT_WRITEE:
 		rl = gen_exp(get_child(node), _A0);
