@@ -37,7 +37,7 @@ H	   [a-fA-F0-9]
 "continue"		{  return(CONTINUE); }
 "do"                    {  return(DO); }
 "const"			{  return(CONST); }
-
+"auto"                  { return(AUTO);  }
 "read"			{  return(READ); }
 "write"			{  return(WRITE); }
 \"[^\"]*\"			{
