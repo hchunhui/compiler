@@ -328,6 +328,7 @@ static void gen_stmt(struct ast_node *node)
 				  node->first_line,
 				  node->first_column,
 				  "break不在while块中\n");
+		break;
 	case NT_CONTINUE:
 		if(!in_while)
 			new_error_p(0,
