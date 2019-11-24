@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "ast_node.h"
 #include "sym_tab.h"
 #include "c1.tab.h"

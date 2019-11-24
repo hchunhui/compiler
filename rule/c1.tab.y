@@ -11,6 +11,9 @@ static struct type *curr_type;
 #define new_error_p(...) do { new_error(__VA_ARGS__); err++; } while(0)
 static int err;
 
+int yylex(void);
+void yyerror(char const *s);
+
 struct ast_node *mknode(int type, int id, ...);
 struct ast_node *mkleafi(int type, int id, int ival);
 struct ast_node *mkleafb(int type, int id, int ival);
