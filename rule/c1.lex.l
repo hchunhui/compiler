@@ -35,7 +35,9 @@ H	   [a-fA-F0-9]
 "return"		{  return(RETURN); }
 "for"			{  return(FOR); }
 "continue"		{  return(CONTINUE); }
-
+"do"                    {  return(DO); }
+"auto"                  {  return(AUTO); } // C++
+"class"                 {  return(CLASS); } // C++
 "const"			{  return(CONST); }
 
 "read"			{  return(READ); }
